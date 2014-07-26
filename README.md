@@ -25,7 +25,8 @@ Then install the [devtools](https://github.com/hadley/devtools) package, and use
 
     install.packages("devtools")
     library(devtools)
-    install_github(c("qvalue", "subSeq"), "StoreyLab")
+    install_github("qvalue", "jdstorey")
+    install_github("subSeq", "StoreyLab")
 
 Vignette
 ---------------------
