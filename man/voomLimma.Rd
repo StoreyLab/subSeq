@@ -1,0 +1,28 @@
+\name{voomLimma}
+\alias{voomLimma}
+\title{handler for performing voom normalization and then limma linear modeling
+on subsampled RNA-Seq data}
+\usage{
+voomLimma(count.matrix, treatment, ...)
+}
+\arguments{
+  \item{count.matrix}{Matrix of unnormalized counts}
+
+  \item{treatment}{vector describing the treatment of each
+  sample (column)}
+
+  \item{...}{Additional arguments to be passed to the voom
+  normalization}
+}
+\value{
+A data frame with one row for each gene, with the columns
+
+\item{coefficient}{log2 fold change between the conditions}
+\item{pvalue}{P-value using a linear model of expression ~
+treatment}
+}
+\description{
+This encapsulates the voom normalization and limma
+differential expression testing functions.
+}
+

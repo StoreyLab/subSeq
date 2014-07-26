@@ -1,0 +1,67 @@
+\name{summary.subsamples}
+\alias{summary.subsamples}
+\title{calculate summary statistics for each subsampled depth in a subsamples object}
+\usage{
+\method{summary}{subsamples}(object, oracle = NULL, FDR.level = 0.05,
+  average = FALSE, ...)
+}
+\arguments{
+  \item{object}{a subsamples object}
+
+  \item{oracle}{a subsamples object of one depth showing
+  what each depth should be compared to; if NULL, each will
+  be compared to the highest depth}
+
+  \item{FDR.level}{A false discovery rate used to calculate
+  the number of genes found significant at each level}
+
+  \item{average}{If TRUE, averages over replications at
+  each method+depth combination before returning}
+
+  \item{...}{further arguments passed to or from other
+  methods.}
+}
+\value{
+A summary object, which is a \code{data.table} with one row
+for each subsampling depth, containing the metrics
+
+\item{significant}{number of genes found significant at the
+given FDR} \item{pearson}{Pearson correlation of the
+coefficient estimates with the oracle}
+\item{spearman}{Spearman correlation of the coefficient
+estimates with the oracle} \item{MSE}{mean squared error
+between the coefficient estimates at the oracle}
+\item{estFDP}{estimated FDP: the estimated false discovery
+proportion, as calculated from the average oracle local FDR
+within genes found significant at this depth}
+\item{rFDP}{relative FDP: the proportion of genes found
+significant at this depth that were not found significant
+in the oracle} \item{percent}{the percentage of genes found
+significant in the oracle that were found significant at
+this depth}
+}
+\description{
+Given a subsamples object, calculate a metric for each
+depth that summarizes the power, the specificity, and the
+accuracy of the effect size estimates at that depth.
+}
+\details{
+To perform these calculations, one must compare each depth
+to an "oracle" depth, which, if not given explicitly, is
+assumed to be the highest subsampling depth. This thus
+summarizes how closely each agrees with the full
+experiment: if very low-depth subsamples still agree, it
+means that the depth is high enough that the depth does not
+make a strong qualitative difference.
+
+Note that selecting average=TRUE averages the depths of the
+replicates (as two subsamplings with identical proportions
+may have different depths by chance). This may lead to
+depths that are not integers.
+}
+\examples{
+data(hammer)
+
+hammer.counts = hammer
+}
+

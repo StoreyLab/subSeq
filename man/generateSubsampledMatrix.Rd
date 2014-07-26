@@ -1,0 +1,52 @@
+\name{generateSubsampledMatrix}
+\alias{generateSubsampledMatrix}
+\title{Generate the read matrix corresponding to a particular level}
+\usage{
+generateSubsampledMatrix(counts, proportion, seed, replication = 1)
+}
+\arguments{
+  \item{counts}{Original matrix of read counts}
+
+  \item{proportion}{The specific proportion to subsample}
+
+  \item{seed}{A subsampling seed, which can be extracted
+  from a subsamples or summary.subsamples object. If not
+  given, doesn't set the seed.}
+
+  \item{replication}{Replicate number: allows performing
+  multiple deterministic replications at a given
+  subsampling proportion}
+}
+\description{
+Generate a subsampled matrix from an original count matrix.
+This can be used to perform read subsampling analyses,
+(though generally the \code{subsample} function is
+recommended).
+
+It is also useful for reproducing the results of an earlier
+run (see Details).
+}
+\details{
+A subsamples object, or a summary.subsamples object, does
+not contain the subsampled count matrix at each depth (as
+it would take too much space and is rarely used). However,
+as it saves the random seed used to generate the count
+matrix, the count matrix at any depth can be retrieved.
+This can be done for a subsamples object \code{ss} by
+retrieving the seed with \code{getSeed(ss)}. When given
+along with the original counts, the proportion, and the
+replication number (if more than one subsampling was done
+at each proportion) this produces the same matrix as was
+used in the analysis.
+
+The seed is calculated deterministically using an md5 hash
+of three combined values: the global seed used for the
+subsampling object, the subsampling proportion, and the
+replication # for that proportion.
+}
+\examples{
+data(hammer)
+
+hammer.counts = hammer
+}
+

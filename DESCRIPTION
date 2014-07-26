@@ -1,0 +1,31 @@
+Package: subSeq
+Type: Package
+Title: Subsampling of high-throughput sequencing count data
+Version: 0.99.0
+Date: 2014-3-07
+Author: David Robinson
+Maintainer: David Robinson <dgrtwo@princeton.edu>, John Storey
+    <jstorey@princeton.edu>
+biocViews: Sequencing, HighThroughputSequencing, RNAseq, Transcription,
+    GeneExpression, DifferentialExpression
+Description: Subsampling of high throughput sequencing count data for use in
+    experiment design and analysis
+VignetteBuilder: knitr
+Imports:
+    data.table,
+    ggplot2,
+    qvalue (>= 1.99),
+    digest,
+    reshape2
+Suggests:
+    limma,
+    edgeR,
+    DESeq2,
+    DEXSeq,
+    testthat,
+    pasilla,
+    knitr
+Depends:
+    R (>= 2.10)
+URL: http://github.com/dgrtwo/subSeq
+License: MIT + file LICENSE

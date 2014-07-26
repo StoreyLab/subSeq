@@ -1,0 +1,64 @@
+\name{subsample}
+\alias{subsample}
+\title{Subsample reads and perform statistical testing on each sample}
+\usage{
+subsample(counts, proportions, method = "edgeR", replications = 1,
+  progress = FALSE, seed = NULL, env = parent.frame(), ...)
+}
+\arguments{
+  \item{counts}{Matrix of unnormalized counts}
+
+  \item{proportions}{Vector of subsampling proportions in
+  (0, 1]}
+
+  \item{method}{One or more methods to be performed at each
+  subsample, such as edgeR or DESeq (see Details)}
+
+  \item{replications}{Number of replications to perform at
+  each depth}
+
+  \item{progress}{whether to show a progress bar}
+
+  \item{seed}{An initial seed, which will be stored in the
+  output so that any individual simulation can be
+  reproduced.}
+
+  \item{env}{Environment in which to find evaluate
+  additional hander functions that are given by name}
+
+  \item{...}{Other arguments given to the handler, such as
+  \code{treatment}}
+}
+\value{
+A subsample S3 object, which is a data.table containing
+
+\item{pvalue}{A p-value calculated for each gene by the
+handler} \item{coefficient}{An effect size (usually log
+fold change) calculated for each gene by the handler}
+\item{ID}{gene ID} \item{count}{the number of reads to this
+specific gene in this subsample} \item{depth}{the overall
+sequencing depth of this subsample} \item{method}{the
+method used (the name of the handler)}
+}
+\description{
+Perform subsampling at multiple proportions on a matrix of
+count data representing mapped reads across multiple
+samples in many genes. For each sample, perform some
+statistical operations.
+}
+\details{
+Method represents the name of a handler function, which can
+be custom-written by the user.
+
+If a gene has a count of 0 at a particular depth, we set
+the p-value to 1 and the coefficient to 0 to stay
+consistent between programs. If the gene has a count that
+is not 0 but the p-value is NA, we set the p-value to 1 but
+keep the estimated coefficient.
+}
+\examples{
+data(hammer)
+
+hammer.counts = hammer
+}
+

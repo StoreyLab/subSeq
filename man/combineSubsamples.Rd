@@ -1,0 +1,19 @@
+\name{combineSubsamples}
+\alias{combineSubsamples}
+\title{combine multiple subsamples objects}
+\usage{
+combineSubsamples(...)
+}
+\arguments{
+  \item{...}{Two or more subsamples objects}
+}
+\description{
+Given two or more subsamples objects, combine them into one
+larger object, on which we can perform all the usual
+analyses and plots.
+}
+\details{
+If there are columns in some subsamples objects that are
+not in others, the missing values will be filled with NA
+}
+
