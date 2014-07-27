@@ -31,7 +31,7 @@ function(x, ...) {
     metrics[, average.value:=mean(value, na.rm=TRUE), by=c("method", "proportion", "variable")]
     
     g = (ggplot(metrics, aes(col=method)) + geom_line(aes(x=average.depth, y=average.value)) +
-             facet_wrap("variable", nrow=2, scale="free_y") +
+             facet_wrap("variable", nrow=2, scales="free_y") +
              theme(axis.text.x = element_text(angle=45, hjust=1), legend.position="top") +
              xlab("Depth") + ylab("Metric"))
     if (any(metrics$replication > 1)) {
