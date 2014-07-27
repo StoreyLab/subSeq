@@ -1,0 +1,303 @@
+\documentclass{article}
+
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{subSeq Example}
+
+\usepackage{natbib}
+\usepackage{graphics}
+\usepackage{amsmath}
+\usepackage{indentfirst}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage[utf8]{inputenc}
+
+\DeclareMathOperator{\var}{var}
+\DeclareMathOperator{\cov}{cov}
+
+\Sexpr{library(knitr); opts_chunk$set(tidy=TRUE, cache=TRUE, warning=FALSE, message=FALSE)}
+
+\begin{document}
+
+<<foo,include=FALSE,echo=FALSE>>=
+options(keep.source = TRUE, width = 48)
+foo <- packageDescription("subSeq")
+@
+
+\title{subSeq Package Vignette (Version \Sexpr{foo$Version})}
+\author{David G. Robinson}
+\maketitle
+
+\tableofcontents
+
+\section{Introduction}
+
+This is a vignette for the \texttt{subSeq} package, which performs subsampling of sequencing data to test the effect of depth on your conclusions. When you use a RNA-Seq differential expression method, such as edgeR or DESeq2, you can answer a couple of biological questions:
+
+\begin{enumerate}
+\item What genes are differentially expressed?
+\item What classes of genes show differential expression?
+\end{enumerate}
+
+However, what if we're interested in questions of experimental design:
+
+\begin{enumerate}
+\item Do I have enough reads to detect most of the biologically relevant differences?
+\item If I run a similar experiment, should I run additional lanes, or can I multiplex even more samples and work with fewer reads? 
+\end{enumerate}
+
+One way to help answer these questions is to pretend you have \emph{fewer} reads than you do, and to see how your results (the number of significant genes, your estimates of their effects, and so on) change. If you can achieve the same results with just 10\% of your reads, it indicates that (when using your particular analysis method to answer your particular question) the remaining 90\% of the reads added very little. In turn, if your conclusions changed considerably between 80\% and 100\% of your reads, it is likely they would change more if you added additional reads.
+
+\texttt{subSeq} is also designed to work with \emph{any analysis method you want}, as long as it takes as input a matrix of count data per gene. \texttt{edgeR}, \texttt{DESeq2}, \texttt{voom} and \texttt{DEXSeq} are provided as default examples, but if you prefer to use a different package, to use these packages with a different set of options, or even to use your own method, it is very easy to do so and still take advantage of this package's subsampling methods. See \nameref{sec:custom_handler} for more.
+
+\section{Quick Start Guide}
+
+We demonstrate the use of this method on a subset of the Hammer et al 2010 dataset \cite{Hammer:2010ky}. This dataset (as provided by the ReCount database \cite{Frazee:2011hk}), comes built in to the \texttt{subSeq} package:
+
+<<load_subSeq>>=
+library(subSeq)
+data(hammer)
+@
+
+Alternatively we could have downloaded the RNA-Seq counts directly from the ReCount database:
+
+<<download_hammer, eval=FALSE>>=
+load(url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/hammer_eset.RData"))
+hammer = hammer.eset
+@
+
+We then filter such that no genes had fewer than 5 reads:
+
+<<setup_hammer, dependson="load_subSeq">>=
+hammer.counts = hammer@assayData$exprs[, 1:4]
+hammer.design = hammer@phenoData@data[1:4, ]
+hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
+@
+
+First we should decide which proportions to use. In general, it's a good idea to pick subsamplings on a logarithmic scale, since there tends to be a rapid increase in power for low read depths that then slows down for higher read depths.
+
+<<proportions>>=
+proportions = 10^seq(-2, 0, 1)
+proportions
+@
+
+The more proportions you use for subsampling, the greater your resolution and the better your understanding of the trend. However, it will also take longer to run. We give these proportions, along with the matrix and the design, to the \texttt{subsample} function, which performs the subsampling:
+
+<<subSeq_example, dependson=c("setup_hammer", "proportions")>>=
+subsamples = subsample(hammer.counts, proportions, method=c("edgeR", "voomLimma"), treatment=hammer.design$protocol)
+@
+
+In this command, we are giving it a count matrix (\texttt{hammer.counts}), a vector of proportions to sample, and a vector describing the treatment design (\texttt{hammer.design\$protocol}), and telling it to try two methods (edgeR and voom/limma) and report the results of each. (If there are a large number of proportions, this step may take a few minutes, and you can view a progress bar of the output by using the \texttt{progress=TRUE} argument).
+
+\subsection{The \texttt{subsamples} object}
+
+The \texttt{subsample} function returns a \texttt{subsamples} object. This also inherits the \texttt{data.table} class, as it is a table with one row \emph{for each gene, in each subsample, with each method}:
+
+<<show_subsamples, dependson="subSeq_edgeR">>=
+options(width=40)
+subsamples
+@
+
+The fields it contains are:
+
+\begin{itemize}
+\item \texttt{coefficient}: The estimated effect size at each gene. For differential expression between two conditions, this is the log2 fold-change.
+\item \texttt{pvalue}: The p-value estimated by the method
+\item \texttt{ID}: The ID of the gene, normally provided by the rownames of the count matrix
+\item \texttt{count}: The number of reads for \emph{this particular gene} at this depth
+\item \texttt{depth}: The total depth (across all reads) at this level of sampling
+\item \texttt{replication}: Which subsampling replication (in this subsampling run, only one replicate was performed; use the \texttt{replications} argument to \texttt{subsample} to perform multiple replications)
+\item \texttt{method}: The name of the differential expression method used
+\item \texttt{qvalue}: A q-value estimated from the p-value distribution using the \texttt{qvalue} package. If you consider all genes with a q-value below $q$ as candidates, you expect to achieve a false discovery rate of $q$.
+\end{itemize}
+
+\subsection{Summarizing Output by Depth}
+
+This object gives the differential analysis results per gene, but we are probably more interested in the results per sampling depth: to see how the overall conclusions change at lower read depths. Performing \texttt{summary} on the subsamplings object shows this:
+
+<<summary_subsamples, dependson="subSeq_edgeR">>=
+subsamples.summary = summary(subsamples)
+subsamples.summary
+@
+
+As one example: the first row of this summary table indicates that at a read depth of \Sexpr{subsamples.summary$depth[1]}, \Sexpr{subsamples.summary$method[1]} found \Sexpr{subsamples.summary$significant[1]} genes significant (at an FDR of .05), and that its fold change estimates had a \Sexpr{subsamples.summary$spearman[1]} Spearman correlation and a \Sexpr{subsamples.summary$pearson[1]} Pearson correlation with the full experiment.
+
+Note that different methods are compared \emph{on the same subsampled matrix} for each depth. That is, at depth \Sexpr{subsamples.summary$depth[1]}, results from \texttt{edgeR} are being compared to results from \texttt{voomLimma} on the same matrix.
+
+\subsubsection{Estimating False Discovery Proportion}
+
+One question that \texttt{subSeq} can answer is whether decreasing your read depth ever \emph{introduces} false positives. This would be a worrisome sign, as it suggests that \emph{increasing} your read depth even more might prove that you are finding many false positives. \texttt{subSeq} has two ways of estimating the false discovery proportion at each depth, each of which requires choosing an FDR threshold to control for (default 5\%):
+
+\begin{itemize}
+\item \texttt{eFDP}: The estimated false discovery proportion at each depth when controlling for FDR. This is found by calculating the local false discovery rate of each gene in the oracle, (which we will call the "oracle lFDR"), then finding the mean oracle lFDR of the genes found significant at each depth. This is effectively using the best information available (the full, oracle experiment) to estimate how successful your FDR control is at each depth. This estimate will converge to the desired FDR threshold (e.g. 5\%) at the full depth.
+\item \texttt{rFDP}: the "relative" false discovery proportion at each depth, where a relative false discovery is defined as a gene found significant at a subsampled depth that was not found significant at the full depth. This estimate will converge to 0\% at the full depth.
+\end{itemize}
+
+Generally, we recommend the \texttt{eFDP} over the \texttt{rFDP} (and the \texttt{eFDP} is the default metric plotted), as a) it is a less noisy estimate, b) It converges to 5\% rather than dropping back down to 0, and c) it takes into account \emph{how} unlikely each hypothesis appeared to be in the oracle, rather than simply the binary question of whether it fell above a threshold. We report the \texttt{rFDP} only because it a simpler metric that does not require the estimation of local FDR.  
+
+In either case, it is important to note that the full experiment is not perfect and has false positives and negatives of its own, so these metrics should not be viewed as an absolute false discovery rate (i.e., "proof" that an experiment is correct). Instead, they examine whether decreasing read depth tends to introduce false results.
+
+\section{Plotting}
+
+The best way to understand your subsampling results intuitively is to plot them. You can do this by plotting the summary object (not the original subsamples). \texttt{plot(subsamples.summary)} creates Figure \ref{fig:default_plot}, which plots some useful metrics of quality by read depth.
+
+\begin{figure}
+<<plot_subsamples, dependson="summary_subsamples", echo=FALSE>>=
+plot(subsamples.summary)
+@
+\caption{The default output of \texttt{plot(subsamples.summary)}. This shows four plots: (i) The number of significant genes found significant at each depth; (ii) the estimated false discovery at this depth, calculated as the average oracle local FDR of the genes found significant at this depth; (iii) The Spearman correlation of estimates at each depth with the estimates at the full experiment; (iv) the mean-squared error of the estimates at each depth with the estimates at the full experiment.\label{fig:default_plot}}
+\end{figure}
+
+Creating your own plot by read depth from the summary object is easy using \href{http://ggplot2.org/}{ggplot2}. For instance, if you would like to plot the percentage of oracle (full experiment) genes that were found significant at each depth, you could do:
+
+<<custom_ggplot2, dependson="summary_subsamples", out.height="3in", out.width="3in">>=
+library(ggplot2)
+ggplot(subsamples.summary, aes(x=depth, y=percent, col=method)) + geom_line()
+@
+
+If you'd like to focus on the Pearson correlations of the estimates, you could do:
+
+<<custom_ggplot2_2, dependson=c("summary_subsamples", "custom_ggplot2"), out.height="3in", out.width="3in">>=
+ggplot(subsamples.summary, aes(x=depth, y=pearson, col=method)) + geom_line()
+@
+
+\section{Writing Your Own Analysis Method}
+
+\label{sec:custom_handler}
+
+There are five methods of RNA-Seq differential expression analysis built in to \texttt{subSeq}:
+
+\begin{itemize}
+\item \texttt{edgeR} Uses edgeR's exact negative binomial test to compare two conditions \cite{Robinson:2010p11822} 
+\item \texttt{edgeR.glm} Uses edgeR's generalized linear model, which allows fitting a continuous variable and including covariates.
+\item \texttt{voomLimma} Uses \texttt{voom} from the \texttt{edgeR} package to normalize the data, then apply's limma's linear model with empirical Bayesian shrinkage \cite{Law:2014}.
+\item \texttt{DESeq2} Applies the negative binomial Wald test from the \texttt{DESeq2} package \cite{Anders:2010}. DESeq2 is notable for including shrinkage on the parameters.
+\item \texttt{DEXSeq} Uses a negative binomial generalized linear model to look for differential exon usage in mapped exon data (see \nameref{sec:DEXSeq}) \cite{Anders:2012es}.
+\end{itemize}
+
+These handlers are provided so you can perform subSeq analyses "out-of-the-box". However, it is very likely that your RNA-Seq analysis does not fit into one of these methods! It may use different published software, include options you need to set manually, or it could be a method you wrote yourself. No problem: all you need to do is write a function, called a \emph{handler}, that takes in a count matrix and any additional options, then performs your analysis and returns the result as a data.frame.
+
+Start by writing up the code you would use to analyze a count matrix to produce (i) coefficients (such as the log fold-change) and (ii) p-values. But put your code inside a function, and have the function take as its first argument the (possibly subsampled) count matrix, and return the results as a two-column data.frame with one row per gene (in the same order as the matrix):
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+myMethod = function(count.matrix, treatment) {
+    # calculate your coefficients based on the input count matrix
+    coefficients = <some code>
+    # calculate your p-values
+    pvalues = <some more code>
+        
+    # return them as a data.frame
+    return(data.frame(coefficient=coefficients, pvalue=pvalues))
+}
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Your function can be as long or complicated as you want, as long as its first argument is a \texttt{count.matrix} and it returns a data frame with \texttt{coefficient} and \texttt{pvalue} columns.
+
+Now that you've defined this function, you can pass its name to \texttt{subsample} just like you would one of the built-in ones:
+
+<<subsamples_myMethod, eval=FALSE>>=
+subsamples = subsample(hammer.counts, proportions, method=c("edgeR", "DESeq2", "myMethod"), treatment=hammer.design$protocol)
+@
+
+\subsection{Advanced Uses of Handlers}
+
+Your handler can do more than take these two arguments and calculate a p-value:
+
+\begin{itemize}
+\item Your handler can return more columns than a coefficient and p-value (for example, you can return a column of dispersion estimates, confidence interval boundaries, or anything else on which you would like to examine the effect of depth). These columns will be included in the output.
+
+If you provide multiple methods, including one that returns an extra columns and one that doesn't, the column will be filled with NA for the method that doesn't provide the column.
+
+\item Your handler can take more arguments than just a count matrix and treatment vector. Any arguments passed at the end of the `subsample` function will be passed on to it. \emph{However}, you cannot use multiple methods where some take extra arguments and some do not. Instead, perform them separately (using the same seed; see \nameref{sec:seed}) and then use \texttt{combineSubsamples}.
+
+\item Your handler does not necessarily have to return one row per gene. For example, you could have a handler that performs gene set enrichment analysis (GSEA) on your data, which then returns one gene set per row. If so, it must return an additional column: \texttt{ID} (those were otherwise acquired from the rownames of the count matrix). Note that \texttt{count} column (noting the read depth per gene) will become NA unless it is provided by the handler function.
+
+\end{itemize}
+
+\section{Reproducing or Adding to a Previous Run}
+
+\label{sec:seed}
+
+If you have a subsamples or subsample summary object that either you or someone else ran, you might be interested in working with the original data further. For example:
+
+\begin{itemize}
+\item You may want to perform additional methods, and be able to compare them directly to the original
+\item You may want to sample additional depths, and combine them together 
+\item You may have noticed a strange discrepancy in one of the results, and want to further examine the count matrix at that specific depth
+\end{itemize}
+
+All of these are possible, as \texttt{subSeq} stores the random seed used for the run in the results.
+
+\subsection{Adding Methods or Depths}
+
+If you already have some methods performed (as we do in \texttt{subsamples}), we may want to add additional methods. For example you might want to analyze the same depths with the edgeR.glm method. To do this, use the \texttt{getSeed} function to retrieve the random seed from the subsamples results, and then provide that seed to the \texttt{subsample} function:
+
+<<subsamples_more, dependson="subSeq_example">>=
+seed = getSeed(subsamples)
+
+subsamples.more = subsample(hammer.counts, proportions, method=c("edgeR.glm"), mm=model.matrix(~ hammer.design$protocol), seed=seed)
+@
+
+After that, you can combine the two objects using \texttt{combineSubsamples}:
+
+<<subsamples_more_combine, dependson="subsamples_more">>=
+subsamples.combined = combineSubsamples(subsamples, subsamples.more)
+plot(summary(subsamples.combined))
+@
+
+\subsection{Examining a Matrix More Closely}
+
+Say that after your analysis, you are surprised that a particular method performed how it did at a particular depth, and you wish to examine that depth further.
+
+You can also use the seed to retrieve the precise matrix used. For instance, if we want to find the matrix used for the .1 proportion subsampling:
+
+<<generate_subsampled, dependson="subsamples_more">>=
+submatrix = generateSubsampledMatrix(hammer.counts, .1, seed=seed)
+dim(submatrix)
+sum(submatrix)
+@
+
+\section{Subsampling with Alternative Exon Usage}
+
+\label{sec:DEXSeq}
+
+If you have count data on per-exon usage, you can also test the effect of depth on methods such as DEXSeq for detecting differential expression. DEXSeq comes as a built-in handler for \texttt{subSeq}, though it would be equally easy to write a handler for other methods that take count matrices (such as SplicingCompass \cite{Aschoff:2013fi} or Solas \cite{Richard:2010p10149}).
+
+An example is shown below with the Pasilla data, which is the example described in the \href{http://www.bioconductor.org/packages/release/bioc/vignettes/DEXSeq/inst/doc/DEXSeq.pdf}{DEXSeq documentation}.\footnote{This requires installing the \texttt{pasilla} package from Bioconductor; for example with \texttt{source("http://bioconductor.org/biocLite.R"); biocLite("pasilla")}}
+
+<<subSample_DEXSeq, dependson="load_SubSeq", results="hide">>=
+data("pasillaExons", package="pasilla")
+exon.counts = pasillaExons@assayData$counts
+design = pasillaExons@phenoData@data[c("condition", "type")]
+geneIDs = pasillaExons@featureData@data$geneID
+exonIDs = pasillaExons@featureData@data$exonID
+
+subsamples.exon = subsample(exon.counts, proportions, method="DEXSeq", design=design, geneIDs=geneIDs, exonIDs=exonIDs)
+@
+
+Note that requires extra arguments- namely a vector of gene IDs and exon IDs- and returns extra columns, such as the dispersion, that are produced by DEXSeq.
+
+<<show_subsamples_exon, dependson="subSample_DEXSeq">>=
+head(subsamples.exon[proportion == 1])
+@
+
+\section{Note on Subsampling}
+
+subSeq performs read subsampling using a random draw from a binomial distribution. Specifically, for a subsampling proportion $p_k$, each value $m,n$ in the subsampled matrix $Y^{(k)}$ is generated as:
+
+\begin{center}
+$Y^{(k)}_{m,n} \sim \mbox{Binom}(X_{m,n}, p_k)$
+\end{center}
+
+This is equivalent to allowing each original mapped read to have probability $p_k$ of being included in the new counts, as done, for example, by the Picard DownsampleSam function \citep{Picard}.
+
+A computationally intensive alternative is to sample the reads \emph{before} they are mapped, then to perform mapping on the sampled data. When the mapping is done independently and deterministically for each read, as it is e.g. in Bowtie, this is mathematically identical to subsampling the aligned reads or counts, since the inclusion of one read does not affect the mapping of any other. This applies to methods such as Bar-Seq and Tn-Seq, or for RNA-Seq in organisms with no or very few introns (e.g. bacteria or yeast). Note that some spliced read mappers, such as TopHat, do not perform all their mappings entirely independently, since unspliced mappings are first used to determine exonic regions before searching for spliced reads. However, those methods are (not coincidentally) among the most computationally intensive mappers in terms of running time and memory usage, giving subSeq an especially large advantage.
+
+Several other papers that perform subsampling have made the assumption of independence implicitly, but if you are unsure, it may be useful to subsample the original fastq file, then perform the read mapping on each sample individually, and compare the subsampled counts to those from \texttt{subSeq} to check that this approximation is reasonable for your data.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}
