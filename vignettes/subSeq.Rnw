@@ -75,7 +75,7 @@ hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 First we should decide which proportions to use. In general, it's a good idea to pick subsamplings on a logarithmic scale, since there tends to be a rapid increase in power for low read depths that then slows down for higher read depths.
 
 <<proportions>>=
-proportions = 10^seq(-2, 0, 1)
+proportions = 10^seq(-2, 0, .5)
 proportions
 @
 

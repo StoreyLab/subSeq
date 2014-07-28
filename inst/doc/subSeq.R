@@ -16,7 +16,7 @@ hammer.design = hammer@phenoData@data[1:4, ]
 hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 
 ## ----proportions------------------------------
-proportions = 10^seq(-2, 0, 1)
+proportions = 10^seq(-2, 0, .5)
 proportions
 
 ## ----subSeq_example, dependson=c("setup_hammer", "proportions")----
