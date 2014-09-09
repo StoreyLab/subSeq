@@ -13,6 +13,8 @@ However, what if we're interested in questions of experimental design:
 
 One way to help answer these questions is to pretend you have *fewer* reads than you do, and to see how your results (the number of significant genes, your estimates of their effects, and so on) change. If you can achieve the same results with just 10\% of your reads, it indicates that (when using your particular analysis method to answer your particular question) the remaining 90\% of the reads added very little. In turn, if your conclusions changed considerably between 80\% and 100\% of your reads, it is likely they would change more if you added additional reads.
 
+See also [subSeq: Determining appropriate sequencing depth through efficient read subsampling](http://bioinformatics.oxfordjournals.org/content/early/2014/09/03/bioinformatics.btu552.abstract).
+
 Installation
 -------------
 

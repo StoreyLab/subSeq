@@ -41,8 +41,8 @@
 #' 
 #' data(hammer)
 #' 
-#' hammer.counts = hammer@assayData$exprs[, 1:4]
-#' hammer.design = hammer@phenoData@data[1:4, ]
+#' hammer.counts = hammer@@assayData$exprs[, 1:4]
+#' hammer.design = hammer@@phenoData@@data[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,

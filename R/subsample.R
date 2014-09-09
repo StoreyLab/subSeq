@@ -12,6 +12,10 @@
 #' @param progress whether to show a progress bar
 #' @param seed An initial seed, which will be stored in the output
 #' so that any individual simulation can be reproduced.
+#' @param presample Optionally, can first run one round of subsampling before
+#' performing this proportion. This is useful because the seed will be chosen
+#' based on the replication number but not the proportion: it's useful for testing
+#' what subsampling would have looked like if it happened to a smaller experiment.
 #' @param env Environment in which to find evaluate additional hander functions
 #' that are given by name
 #' @param ... Other arguments given to the handler, such as \code{treatment}
@@ -38,8 +42,8 @@
 #' 
 #' data(hammer)
 #' 
-#' hammer.counts = hammer@assayData$exprs[, 1:4]
-#' hammer.design = hammer@phenoData@data[1:4, ]
+#' hammer.counts = hammer@@assayData$exprs[, 1:4]
+#' hammer.design = hammer@@phenoData@@data[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
@@ -51,7 +55,7 @@
 #' @export
 subsample <-
     function(counts, proportions, method="edgeR", replications=1, progress=FALSE,
-             seed=NULL, env=parent.frame(), ...) {
+             seed=NULL, presample=NULL, env=parent.frame(), ...) {
         # error checking
         if (length(proportions) == 0) {
             stop("No proportions to sample")
@@ -115,7 +119,16 @@ subsample <-
                 proportion = prop.reps[i, 1]
                 replication = prop.reps[i, 2]
                 
-                subcounts = generateSubsampledMatrix(counts, proportion, seed, replication)
+                if (!is.null(presample)) {
+                    # perform presampling. This will be consistent across proportions
+                    # but not replications. Note that it is quite different from performing
+                    # a single subsampling of presample * proportion, because this occurs
+                    # identically for each replication.
+                    counts2 = generateSubsampledMatrix(counts, presample, seed, replication)
+                } else {
+                    counts2 = counts
+                }
+                subcounts = generateSubsampledMatrix(counts2, proportion, seed, replication)
                 ret = handler(subcounts, ...)
                 
                 if (NROW(ret) == NROW(counts)) {

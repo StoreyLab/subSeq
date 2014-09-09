@@ -40,6 +40,31 @@ function(x, ...) {
     return(g)
 }
 
+#' plot metrics as a function of subsampled read depth
+#' 
+#' Plot the number of genes found significant, the Spearman correlation of the
+#' effect size estimates with the full experiment, and the empirical false
+#' discovery rate as a function of the subsampled read depth. This determines
+#' whether these metrics saturate, which indicates that the experiment has an
+#' appropriate sequencing depth.
+#' 
+#' This is an alias for the \link{plot.summary.subsamples} function, so that
+#' plotting can be done directly on the subsamples object. We recommend using
+#' \code{summary(ss)} first, so that the summary operation does not have to
+#' be performed each time the figure is plotted, and so the summary object
+#' can be examined on its own.
+#' 
+#' @param x a \code{subsamples} object
+#' @param ... further arguments passed to or from other methods.
+#' 
+#' @export
+plot.subsamples <-
+    function(x, ...) {
+        summ = summary(x)
+        plot(summ)
+    }
+
+
 ## helper functions
 
 subsample.plot.helper <-
