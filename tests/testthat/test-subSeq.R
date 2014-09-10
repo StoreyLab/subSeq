@@ -129,6 +129,16 @@ test_that("quality metrics improve with increasing depth", {
     }
 })
 
+test_that("summaries can be created with other p-value corrections", {
+    ss.summ.BH = summary(ss, p.adjust.method="BH")
+    ss.summ.bon = summary(ss, p.adjust.method="bonferroni")
+    expect_that(all(ss.summ.BH$significant < ss.summ$significant), is_true())
+    expect_that(all(ss.summ.bon$significant < ss.summ.BH$significant), is_true())
+    
+    # check that you can't give it a nonsense method
+    expect_that(summary(ss, p.adjust.method="nomethod"), throws_error("should be one of"))
+})
+
 ss.rep = subsample(counts, c(.1, 1), treatment=treatment,
                    method=c("edgeR", "voomLimma"), replications=2)
 

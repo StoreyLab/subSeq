@@ -4,7 +4,7 @@
 \title{calculate summary statistics for each subsampled depth in a subsamples object}
 \usage{
 \method{summary}{subsamples}(object, oracle = NULL, FDR.level = 0.05,
-  average = FALSE, ...)
+  average = FALSE, p.adjust.method = "qvalue", ...)
 }
 \arguments{
 \item{object}{a subsamples object}
@@ -17,6 +17,9 @@ found significant at each level}
 
 \item{average}{If TRUE, averages over replications at each method+depth
 combination before returning}
+
+\item{p.adjust.method}{Method to correct p-values in order to determine significance.
+By default "qvalue", but can also be given any method that can be given to p.adjust.}
 
 \item{...}{further arguments passed to or from other methods.}
 }
@@ -54,13 +57,13 @@ chance). This may lead to depths that are not integers.
 \examples{
 data(hammer)
 
-hammer.counts <- hammer@assayData$exprs[, 1:4]
-hammer.design <- hammer@phenoData@data[1:4, ]
-hammer.counts <- hammer.counts[rowSums(hammer.counts) >= 5, ]
+hammer.counts = hammer@assayData$exprs[, 1:4]
+hammer.design = hammer@phenoData@data[1:4, ]
+hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 
-ss <- subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
+ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
                  method=c("edgeR", "DESeq2", "voomLimma"))
 
-ss.summary <- summary(ss)
+ss.summary = summary(ss)
 }
 

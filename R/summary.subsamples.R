@@ -17,6 +17,8 @@
 #' found significant at each level
 #' @param average If TRUE, averages over replications at each method+depth
 #' combination before returning
+#' @param p.adjust.method Method to correct p-values in order to determine significance.
+#' By default "qvalue", but can also be given any method that can be given to p.adjust.
 #' @param ... further arguments passed to or from other methods.
 #' 
 #' @return A summary object, which is a \code{data.table}
@@ -56,7 +58,8 @@
 #' 
 #' @export
 summary.subsamples <-
-function(object, oracle=NULL, FDR.level=.05, average=FALSE, ...) {
+function(object, oracle=NULL, FDR.level=.05, average=FALSE, 
+         p.adjust.method="qvalue", ...) {
     # find the oracle for each method
     tab = as.data.frame(object)
 
@@ -82,21 +85,31 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE, ...) {
     }
     oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr1(pvalue))
 
+    # compute adjusted p-values in oracles and data
+    if (p.adjust.method == "qvalue") {
+        # q-values were already calculated by the subsample function
+        tab$padj = tab$qvalue
+        oracles$padj = oracles$qvalue
+    } else {
+        tab = tab %>% group_by(method, proportion, replication) %>% mutate(padj=p.adjust(pvalue, method=p.adjust.method)) %>% group_by()
+        oracles = oracles %>% group_by(method, proportion, replication) %>% mutate(padj=p.adjust(pvalue, method=p.adjust.method)) %>% group_by()
+    }
+
     # combine with oracle
-    sub.oracle = oracles %>% select(method, ID, o.pvalue=pvalue, o.qvalue=qvalue,
+    sub.oracle = oracles %>% select(method, ID, o.padj=padj,
                                      o.coefficient=coefficient, o.lfdr=lfdr)
     tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
     
     # summary operation
     ret = tab %>% group_by(depth, proportion, method, replication) %>%
         mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
-        summarize(significant=sum(qvalue < FDR.level),
+        summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
                   spearman=cor(coefficient, o.coefficient, use="complete.obs", method="spearman"),
                   MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
-                  estFDP=mean(o.lfdr[qvalue < FDR.level]),
-                  rFDP=mean((o.qvalue > FDR.level)[qvalue < FDR.level]),
-                  percent=mean(qvalue[o.qvalue < FDR.level] < FDR.level))
+                  estFDP=mean(o.lfdr[padj < FDR.level]),
+                  rFDP=mean((o.padj > FDR.level)[padj < FDR.level]),
+                  percent=mean(padj[o.padj < FDR.level] < FDR.level))
 
     # any case where none are significant, the estFDP/rFDP should be 0 (not NaN)
     # since technically there were no false discoveries
@@ -105,7 +118,8 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE, ...) {
 
     if (average) {
         # average each metric within replications
-        ret = ret %>% gather(metric, value, significant:percent) %>% group_by(proportion, method, metric) %>%
+        ret = ret %>% gather(metric, value, significant:percent) %>%
+            group_by(proportion, method, metric) %>%
             summarize(value=mean(value)) %>% spread(metric, value)
     }
     
