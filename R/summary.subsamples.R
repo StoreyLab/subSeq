@@ -78,7 +78,13 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE, ...) {
     }
 
     get.stats = function(i, q, coef, m) {
-        o = oracles[[as.character(m[1])]][match(i, ID), ]
+        o = oracles[[as.character(m[1])]]
+        
+        # use only those that exist in oracle as well
+        q = q[i %in% o$ID]
+        coef = coef[i %in% o$ID]    
+        i = i[i %in% o$ID]
+        o = o[match(i, ID), ]
 
         # statistics
         valid = !is.na(coef) & !is.na(o$coefficient)

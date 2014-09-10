@@ -73,6 +73,7 @@ edgeR.glm <-
             group = rep(1, ncol(count.matrix))
         }
         d = DGEList(counts=count.matrix, group=group)
+        d = calcNormFactors(d)        
         d = estimateGLMTrendedDisp(d, mm)
         d = estimateGLMTagwiseDisp(d, mm)
         fit = glmFit(d, mm, dispersion=d$tagwise.dispersion)
