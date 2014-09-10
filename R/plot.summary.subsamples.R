@@ -10,28 +10,32 @@
 #' @param ... further arguments passed to or from other methods.
 #' 
 #' @import ggplot2
-#' @import reshape2
+#' @import tidyr
 #' 
 #' @export
 plot.summary.subsamples <-
 function(x, ...) {
     vars = c("significant", "estFDP", "spearman", "MSE")
-    id.vars = c("method", "depth", "replication", "proportion")
-    metrics = as.data.table(melt(as.data.frame(x), id=id.vars))
-
-    metrics = metrics[variable %in% vars]
+    
+    FDR.level = attr(x, "FDR.level")
+    if (is.null(FDR.level) || FDR.level == .05) {
+        FDR.level = "5%"
+    }
+    
+    metrics <- as.data.frame(x) %>% gather(metric, value, significant:percent) %>%
+                    filter(metric %in% vars)
 
     # change order and appearance of levels
-    metrics$variable = factor(metrics$variable, levels=vars)
-    levels(metrics$variable) = c("# significant genes at 5% FDR", "Estimated FDP",
+    metrics$metric = factor(metrics$metric, levels=vars)
+    levels(metrics$metric) = c(paste("# significant genes at", FDR.level, "FDR"), "Estimated FDP",
                                  "Spearman corr of estimates", "MSE of estimates")
 
     # average within replications
-    metrics[, average.depth:=mean(depth, na.rm=TRUE), by=c("method", "proportion", "variable")]
-    metrics[, average.value:=mean(value, na.rm=TRUE), by=c("method", "proportion", "variable")]
+    metrics <- metrics %>% group_by(method, depth, metric) %>%
+        mutate(average.depth=mean(depth, na.rm=TRUE), average.value=mean(value, na.rm=TRUE))
     
     g = (ggplot(metrics, aes(col=method)) + geom_line(aes(x=average.depth, y=average.value)) +
-             facet_wrap("variable", nrow=2, scales="free_y") +
+             facet_wrap(~ metric, nrow=2, scales="free_y") +
              theme(axis.text.x = element_text(angle=45, hjust=1), legend.position="top") +
              xlab("Depth") + ylab("Metric"))
     if (any(metrics$replication > 1)) {

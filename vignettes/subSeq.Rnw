@@ -85,7 +85,7 @@ The more proportions you use for subsampling, the greater your resolution and th
 subsamples = subsample(hammer.counts, proportions, method=c("edgeR", "voomLimma"), treatment=hammer.design$protocol)
 @
 
-In this command, we are giving it a count matrix (\texttt{hammer.counts}), a vector of proportions to sample, and a vector describing the treatment design (\texttt{hammer.design\$protocol}), and telling it to try two methods (edgeR and voom/limma) and report the results of each. (If there are a large number of proportions, this step may take a few minutes, and you can view a progress bar of the output by using the \texttt{progress=TRUE} argument).
+In this command, we are giving it a count matrix (\texttt{hammer.counts}), a vector of proportions to sample, and a vector describing the treatment design (\texttt{hammer.design\$protocol}), and telling it to try two methods (edgeR and voom/limma) and report the results of each. (If there are a large number of proportions, this step may take a few minutes. If it is being run interactively, it will show a progress bar with an estimated time remaining).
 
 \subsection{The \texttt{subsamples} object}
 

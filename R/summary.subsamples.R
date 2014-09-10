@@ -51,68 +51,67 @@
 #' ss.summary = summary(ss)
 #' 
 #' @importFrom qvalue lfdr
+#' @import dplyr
+#' @import tidyr
 #' 
 #' @export
 summary.subsamples <-
 function(object, oracle=NULL, FDR.level=.05, average=FALSE, ...) {
     # find the oracle for each method
-    object$method = as.character(object$method)
+    tab = as.data.frame(object)
+
+    tab = tab %>% mutate(method=as.character(method))
+
     if (is.null(oracle)) {
-        oracles = lapply(unique(object$method), function(m) {
-            object[method == m, ][depth == max(depth), ]
-        })
+        # use the highest depth in each method
+        oracles = tab %>% group_by(method) %>% filter(depth == max(depth))
     }
     else {
         # oracle is the same for all methods
-        oracles = lapply(unique(object$method), function(m) oracle)
+        oracles = data.frame(method=unique(object$method)) %>%
+            group_by(method) %>% do(oracle)
     }
-    names(oracles) = unique(object$method)
 
     # calculate lfdr for each oracle
-    for (n in names(oracles)) {
+    lfdr1 = function(p) {
         # calculate for all p-values that aren't equal to 1 separately
-        p = oracles[[n]]$pvalue
         non1.lfdr = lfdr(p[p != 1])
-        oracles[[n]]$lfdr = max(non1.lfdr)
-        oracles[[n]]$lfdr[p != 1] = non1.lfdr
+        ret = rep(max(non1.lfdr), length(p))
+        ret[p != 1] = non1.lfdr
+        ret
     }
+    oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr1(pvalue))
 
-    get.stats = function(i, q, coef, m) {
-        o = oracles[[as.character(m[1])]]
-        
-        # use only those that exist in oracle as well
-        q = q[i %in% o$ID]
-        coef = coef[i %in% o$ID]    
-        i = i[i %in% o$ID]
-        o = o[match(i, ID), ]
-
-        # statistics
-        valid = !is.na(coef) & !is.na(o$coefficient)
-        osig = o$qvalue < FDR.level
-        list(significant=sum(q < FDR.level),
-              pearson=cor(coef, o$coefficient, use="complete.obs"),
-              spearman=cor(coef, o$coefficient, use="complete.obs", method="spearman"),
-              MSE=mean((coef[valid] - o$coefficient[valid])^2),
-              estFDP=mean(o$lfdr[q < FDR.level]),
-              rFDP=mean((o$qvalue > FDR.level)[q < FDR.level]),
-              percent=mean(q[osig] < FDR.level))
-    }
-
-    ret = object[, get.stats(ID, qvalue, coefficient, method),
-                by=c("depth", "proportion", "method", "replication")]
+    # combine with oracle
+    sub.oracle = oracles %>% select(method, ID, o.pvalue=pvalue, o.qvalue=qvalue,
+                                     o.coefficient=coefficient, o.lfdr=lfdr)
+    tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
+    
+    # summary operation
+    ret = tab %>% group_by(depth, proportion, method, replication) %>%
+        mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
+        summarize(significant=sum(qvalue < FDR.level),
+                  pearson=cor(coefficient, o.coefficient, use="complete.obs"),
+                  spearman=cor(coefficient, o.coefficient, use="complete.obs", method="spearman"),
+                  MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
+                  estFDP=mean(o.lfdr[qvalue < FDR.level]),
+                  rFDP=mean((o.qvalue > FDR.level)[qvalue < FDR.level]),
+                  percent=mean(qvalue[o.qvalue < FDR.level] < FDR.level))
 
     # any case where none are significant, the estFDP/rFDP should be 0 (not NaN)
     # since technically there were no false discoveries
-    ret$estFDP[ret$significant == 0] = 0
-    ret$rFDP[ret$significant == 0] = 0
+    ret = ret %>% mutate(estFDP=ifelse(significant == 0, 0, estFDP)) %>%
+        mutate(rFDP=ifelse(significant == 0, 0, rFDP))
 
     if (average) {
-        ret = ret[, list(depth=mean(depth), significant=mean(significant), pearson=mean(pearson),
-                         spearman=mean(spearman), MSE=mean(MSE), rFDP=mean(rFDP),
-                         estFDP=mean(estFDP), percent=mean(percent)), by=c("proportion", "method")]
+        # average each metric within replications
+        ret = ret %>% gather(metric, value, significant:percent) %>% group_by(proportion, method, metric) %>%
+            summarize(value=mean(value)) %>% spread(metric, value)
     }
     
+    ret = as.data.table(ret)
     class(ret) = c("summary.subsamples", "data.table", "data.frame")
     attr(ret, "seed") = attr(object, "seed")
+    attr(ret, "FDR.level") = FDR.level
     ret
 }

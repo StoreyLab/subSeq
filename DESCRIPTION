@@ -13,10 +13,11 @@ Description: Subsampling of high throughput sequencing count data for use in
 VignetteBuilder: knitr
 Imports:
     data.table,
+    dplyr,
+    tidyr,
     ggplot2,
     qvalue (>= 1.99),
-    digest,
-    reshape2
+    digest
 Suggests:
     limma,
     edgeR,

@@ -4,8 +4,7 @@
 \title{Subsample reads and perform statistical testing on each sample}
 \usage{
 subsample(counts, proportions, method = "edgeR", replications = 1,
-  progress = FALSE, seed = NULL, presample = NULL, env = parent.frame(),
-  ...)
+  seed = NULL, env = parent.frame(), ...)
 }
 \arguments{
 \item{counts}{Matrix of unnormalized counts}
@@ -17,15 +16,8 @@ such as edgeR or DESeq (see Details)}
 
 \item{replications}{Number of replications to perform at each depth}
 
-\item{progress}{whether to show a progress bar}
-
 \item{seed}{An initial seed, which will be stored in the output
 so that any individual simulation can be reproduced.}
-
-\item{presample}{Optionally, can first run one round of subsampling before
-performing this proportion. This is useful because the seed will be chosen
-based on the replication number but not the proportion: it's useful for testing
-what subsampling would have looked like if it happened to a smaller experiment.}
 
 \item{env}{Environment in which to find evaluate additional hander functions
 that are given by name}

@@ -9,13 +9,8 @@
 #' @param method One or more methods to be performed at each subsample,
 #' such as edgeR or DESeq (see Details)
 #' @param replications Number of replications to perform at each depth
-#' @param progress whether to show a progress bar
 #' @param seed An initial seed, which will be stored in the output
 #' so that any individual simulation can be reproduced.
-#' @param presample Optionally, can first run one round of subsampling before
-#' performing this proportion. This is useful because the seed will be chosen
-#' based on the replication number but not the proportion: it's useful for testing
-#' what subsampling would have looked like if it happened to a smaller experiment.
 #' @param env Environment in which to find evaluate additional hander functions
 #' that are given by name
 #' @param ... Other arguments given to the handler, such as \code{treatment}
@@ -50,12 +45,13 @@
 #'                  method=c("edgeR", "DESeq2", "voomLimma"))
 #' 
 #' @import data.table
+#' @import dplyr
 #' @importFrom qvalue qvalue
 #' 
 #' @export
 subsample <-
-    function(counts, proportions, method="edgeR", replications=1, progress=FALSE,
-             seed=NULL, presample=NULL, env=parent.frame(), ...) {
+    function(counts, proportions, method="edgeR", replications=1,
+             seed=NULL, env=parent.frame(), ...) {
         # error checking
         if (length(proportions) == 0) {
             stop("No proportions to sample")
@@ -77,110 +73,83 @@ subsample <-
             seed = sample(.Machine$integer.max, 1)
         }
         
-        # perform one for each method and proportion, creating a data.table for each, and combine
+        # create a list mapping function name to function
         if (is.function(method)) {
             # if given a single function, make that into a list
-            method.name = deparse(substitute(method))
-            method = list(method)
+            methods = list(method)
+            names(methods) = deparse(substitute(method))
         }
-        results = lapply(method, function(m) {        
-            if (is.function(m)) {
-                # function can be given directly
-                handler = m
-                m = method.name  # make m a string
-            }
-            else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
-                # first look in subSeq package
-                handler = get(m, mode="function", envir=as.environment("package:subSeq"))
-            }
-            else if (exists(m, mode="function", envir=env)) {
-                # then look in the caller's environment
-                handler = get(m, mode="function", envir=env)
-            }
-            else {
-                stop(paste("Could not find handler", m))
-            }
-
-            prop.reps = expand.grid(proportions, 1:replications)
-            # don't need replications of full depth (will be identical)
-            prop.reps = prop.reps[!(prop.reps$Var1 == 1 & prop.reps$Var2 > 1), ]
-
-            if (progress) {
-                cat(paste0("Subsampling with method ", m, ":\n"))
-                pb <- txtProgressBar(min=0, max=nrow(prop.reps))
-            }
-            
-            # apply method to each subsample the specified number of times
-            m.ret = as.data.table(do.call(rbind, lapply(1:nrow(prop.reps), function(i) {
-                if (progress) {
-                    setTxtProgressBar(pb, i)
+        else {
+            methods = lapply(method, function(m) {
+                # function can be given directly: otherwise, check subSeq package
+                # then caller's env
+                if (is.function(m)) {
+                    handler = m
                 }
-                
-                proportion = prop.reps[i, 1]
-                replication = prop.reps[i, 2]
-                
-                if (!is.null(presample)) {
-                    # perform presampling. This will be consistent across proportions
-                    # but not replications. Note that it is quite different from performing
-                    # a single subsampling of presample * proportion, because this occurs
-                    # identically for each replication.
-                    counts2 = generateSubsampledMatrix(counts, presample, seed, replication)
-                } else {
-                    counts2 = counts
+                else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
+                    handler = get(m, mode="function", envir=as.environment("package:subSeq"))
                 }
-                subcounts = generateSubsampledMatrix(counts2, proportion, seed, replication)
-                ret = handler(subcounts, ...)
-                
-                if (NROW(ret) == NROW(counts)) {
-                    # if the output is the same size as the input, assume there
-                    # is a one-to-one gene correspondence
-                    # add gene names (ID) and per-gene counts
-                    ret$ID = factor(rownames(counts))
-                    ret$count = as.integer(rowSums(subcounts))
+                else if (exists(m, mode="function", envir=env)) {
+                    handler = get(m, mode="function", envir=env)
                 }
                 else {
-                    if (is.null(ret$ID)) {
-                        stop(paste("If handler does not return one row per gene,",
-                                   "it must include an ID column."))
-                    }
+                    stop(paste("Could not find handler", m))
                 }
-                ret$depth = sum(subcounts)    
-                ret$method = m
-                ret$proportion = proportion
-                ret$replication = replication
-                
-                # in any cases of no reads, fix coefficient/pvalue to 0/1
-                if ("count" %in% colnames(ret)) {
-                    ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = 1
-                    ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
+                handler
+            })
+            names(methods) = method
+        }
+
+        # perform one for each method x proportion x replication
+        params = expand.grid(method=names(methods), proportion=proportions, replication=1:replications)
+        # don't need replications of full depth (will be identical)
+        params = params %>% filter(!(proportion == 1 & replication > 1))
+
+        # apply method to each subsample the specified number of times
+        #m.ret = as.data.table(do.call(rbind, lapply(1:nrow(prop.reps), 
+        perform.subsampling <- function(method, proportion, replication) {
+            # generate subcounts and use handler
+            subcounts = generateSubsampledMatrix(counts, proportion, seed, replication)
+            handler = methods[[method]]
+            ret = handler(subcounts, ...)
+
+            # postprocessing
+            if (NROW(ret) == NROW(counts)) {
+                # if the output is the same size as the input, assume there
+                # is a one-to-one gene correspondence
+                # add gene names (ID) and per-gene counts
+                ret$ID = rownames(counts)
+                ret$count = as.integer(rowSums(subcounts))
+            }
+            else {
+                if (is.null(ret$ID)) {
+                    stop(paste("If handler does not return one row per gene,",
+                               "it must include an ID column."))
                 }
-                ret
-            })))
-            
-            ## cleanup
-            # make sure method is a factor
-            m.ret$method = factor(m.ret$method)
-            
-            if (progress) {
-                close(pb)
-                cat("Calculating q-values... ")
             }
+            ret$depth = sum(subcounts)    
             
-            # calculate q-value
-            m.ret[, qvalue:=qvalue.filtered1(pvalue), by=depth]
-            
-            class(m.ret) = c("subsamples", class(m.ret))
-            
-            attr(m.ret, "seed") = seed
-            
-            if (progress) {
-                cat("done.\n")
+            # in any cases of no reads, fix coefficient/pvalue to 0/1
+            if ("count" %in% colnames(ret)) {
+                ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = 1
+                ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
             }
-            
-            m.ret
-        })
-        
-        ret = do.call(combineSubsamples, results)
+            ret
+        }
+
+        ret = params %>% group_by(method, proportion, replication) %>%
+            do(perform.subsampling(.$method, .$proportion, .$replication))
+
+        ## cleanup
+        # calculate q-values
+        ret = ret %>% group_by(proportion, method, replication) %>%
+            mutate(qvalue=qvalue.filtered1(pvalue)) %>% group_by()
+
+        # turn into a subsamples object
+        ret = as.data.table(ret)
+        class(ret) = c("subsamples", class(ret))
+        attr(ret, "seed") = seed
+
         return(ret)
     }
 

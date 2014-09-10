@@ -54,13 +54,13 @@ chance). This may lead to depths that are not integers.
 \examples{
 data(hammer)
 
-hammer.counts = hammer@assayData$exprs[, 1:4]
-hammer.design = hammer@phenoData@data[1:4, ]
-hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
+hammer.counts <- hammer@assayData$exprs[, 1:4]
+hammer.design <- hammer@phenoData@data[1:4, ]
+hammer.counts <- hammer.counts[rowSums(hammer.counts) >= 5, ]
 
-ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
+ss <- subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
                  method=c("edgeR", "DESeq2", "voomLimma"))
 
-ss.summary = summary(ss)
+ss.summary <- summary(ss)
 }
 
