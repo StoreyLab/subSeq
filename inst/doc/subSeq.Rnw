@@ -85,7 +85,7 @@ The more proportions you use for subsampling, the greater your resolution and th
 subsamples = subsample(hammer.counts, proportions, method=c("edgeR", "voomLimma"), treatment=hammer.design$protocol)
 @
 
-In this command, we are giving it a count matrix (\texttt{hammer.counts}), a vector of proportions to sample, and a vector describing the treatment design (\texttt{hammer.design\$protocol}), and telling it to try two methods (edgeR and voom/limma) and report the results of each. (If there are a large number of proportions, this step may take a few minutes, and you can view a progress bar of the output by using the \texttt{progress=TRUE} argument).
+In this command, we are giving it a count matrix (\texttt{hammer.counts}), a vector of proportions to sample, and a vector describing the treatment design (\texttt{hammer.design\$protocol}), and telling it to try two methods (edgeR and voom/limma) and report the results of each. (If there are a large number of proportions, this step may take a few minutes. If it is being run interactively, it will show a progress bar with an estimated time remaining).
 
 \subsection{The \texttt{subsamples} object}
 
@@ -257,30 +257,6 @@ You can also use the seed to retrieve the precise matrix used. For instance, if 
 submatrix = generateSubsampledMatrix(hammer.counts, .1, seed=seed)
 dim(submatrix)
 sum(submatrix)
-@
-
-\section{Subsampling with Alternative Exon Usage}
-
-\label{sec:DEXSeq}
-
-If you have count data on per-exon usage, you can also test the effect of depth on methods such as DEXSeq for detecting differential expression. DEXSeq comes as a built-in handler for \texttt{subSeq}, though it would be equally easy to write a handler for other methods that take count matrices (such as SplicingCompass \cite{Aschoff:2013fi} or Solas \cite{Richard:2010p10149}).
-
-An example is shown below with the Pasilla data, which is the example described in the \href{http://www.bioconductor.org/packages/release/bioc/vignettes/DEXSeq/inst/doc/DEXSeq.pdf}{DEXSeq documentation}.\footnote{This requires installing the \texttt{pasilla} package from Bioconductor; for example with \texttt{source("http://bioconductor.org/biocLite.R"); biocLite("pasilla")}}
-
-<<subSample_DEXSeq, dependson="load_SubSeq", results="hide">>=
-data("pasillaExons", package="pasilla")
-exon.counts = pasillaExons@assayData$counts
-design = pasillaExons@phenoData@data[c("condition", "type")]
-geneIDs = pasillaExons@featureData@data$geneID
-exonIDs = pasillaExons@featureData@data$exonID
-
-subsamples.exon = subsample(exon.counts, proportions, method="DEXSeq", design=design, geneIDs=geneIDs, exonIDs=exonIDs)
-@
-
-Note that requires extra arguments- namely a vector of gene IDs and exon IDs- and returns extra columns, such as the dispersion, that are produced by DEXSeq.
-
-<<show_subsamples_exon, dependson="subSample_DEXSeq">>=
-head(subsamples.exon[proportion == 1])
 @
 
 \section{Note on Subsampling}
