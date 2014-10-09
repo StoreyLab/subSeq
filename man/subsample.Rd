@@ -4,7 +4,7 @@
 \title{Subsample reads and perform statistical testing on each sample}
 \usage{
 subsample(counts, proportions, method = "edgeR", replications = 1,
-  seed = NULL, env = parent.frame(), ...)
+  seed = NULL, qvalues = TRUE, env = parent.frame(), ...)
 }
 \arguments{
 \item{counts}{Matrix of unnormalized counts}
@@ -18,6 +18,9 @@ such as edgeR or DESeq (see Details)}
 
 \item{seed}{An initial seed, which will be stored in the output
 so that any individual simulation can be reproduced.}
+
+\item{qvalues}{Whether q-values should be calculated for multiple hypothesis
+test correction at each subsample.}
 
 \item{env}{Environment in which to find evaluate additional hander functions
 that are given by name}

@@ -11,6 +11,8 @@
 #' @param replications Number of replications to perform at each depth
 #' @param seed An initial seed, which will be stored in the output
 #' so that any individual simulation can be reproduced.
+#' @param qvalues Whether q-values should be calculated for multiple hypothesis
+#' test correction at each subsample.
 #' @param env Environment in which to find evaluate additional hander functions
 #' that are given by name
 #' @param ... Other arguments given to the handler, such as \code{treatment}
@@ -51,7 +53,7 @@
 #' @export
 subsample <-
     function(counts, proportions, method="edgeR", replications=1,
-             seed=NULL, env=parent.frame(), ...) {
+             seed=NULL, qvalues = TRUE, env=parent.frame(), ...) {
         # error checking
         if (length(proportions) == 0) {
             stop("No proportions to sample")
@@ -131,8 +133,12 @@ subsample <-
             
             # in any cases of no reads, fix coefficient/pvalue to 0/1
             if ("count" %in% colnames(ret)) {
-                ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = 1
-                ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
+                if ("pvalue" %in% colnames(ret)) {
+                    ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = 1
+                }
+                if ("coefficient" %in% colnames(ret)) {
+                    ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
+                }
             }
             ret
         }
@@ -141,9 +147,11 @@ subsample <-
             do(perform.subsampling(.$method, .$proportion, .$replication))
 
         ## cleanup
-        # calculate q-values
-        ret = ret %>% group_by(proportion, method, replication) %>%
-            mutate(qvalue=qvalue.filtered1(pvalue)) %>% group_by()
+        if (qvalues) {
+            # calculate q-values
+            ret = ret %>% group_by(proportion, method, replication) %>%
+                mutate(qvalue=qvalue.filtered1(pvalue)) %>% group_by()
+        }
 
         # turn into a subsamples object
         ret = as.data.table(ret)
