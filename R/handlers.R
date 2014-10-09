@@ -166,14 +166,11 @@ DESeq2 <-
 #' @examples
 #' 
 #' data( "pasillaExons", package="pasilla" )
-#' count.matrix = pasillaExons@@assayData$counts
+#' exon.counts = pasillaExons@@assayData$counts
 #' 
 #' design = pasillaExons@@phenoData@@data[c("condition", "type")]
 #' geneIDs = pasillaExons@@featureData@@data$geneID
 #' exonIDs = pasillaExons@@featureData@@data$exonID
-#' 
-#' proportions = c(.1, 1)
-#' ss.exon = subsample(exon.counts, proportions, design=pasillaExons@@phenoData@@data, geneIDs)
 #' 
 #' DEXSeq(exon.counts, design, geneIDs, exonIDs)
 #' 

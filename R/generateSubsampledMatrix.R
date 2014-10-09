@@ -68,8 +68,12 @@ generateSubsampledMatrix <- function(counts, proportion, seed, replication=1) {
              "the seed from the desired object"))
     }
     # apply random binomial sampling to each cell
+    # keep row names
+    rns <- rownames(counts)
     n = nrow(counts)
-    apply(counts, 2, function(x) rbinom(n, x, proportion))
+    ret <- apply(counts, 2, function(x) rbinom(n, x, proportion))
+    rownames(ret) <- rns
+    ret
 }
 
 #' Extract the global random seed from a subsamples object

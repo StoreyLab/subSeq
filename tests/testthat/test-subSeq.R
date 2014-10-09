@@ -209,13 +209,13 @@ test_that("Can provide custom error handlers", {
                           method=custom)
     
     expect_true(all(ss.custom$method == "custom"))
-    expect_equal(fake.pvalues, ss.custom[depth == min(depth)]$pvalue)
+    expect_equal(fake.pvalues, ss.custom[depth == min(ss.custom$depth)]$pvalue)
     
     # check it can be given as a string as well
     ss.custom2 = subsample(counts, proportions, treatment=treatment,
                            method="custom")
     expect_true(all(ss.custom2$method == "custom"))
-    expect_equal(fake.pvalues, ss.custom2[depth == min(depth)]$pvalue)
+    expect_equal(fake.pvalues, ss.custom2[depth == min(ss.custom2$depth)]$pvalue)
 })
 
 test_that("Handlers can have columns that others don't", {
@@ -329,8 +329,8 @@ test_that("generateSubsampledMatrix retrieves the correct subsampled matrices", 
     expect_equal(dim(subm), dim(counts))
     expect_equal(sum(subm), min(ss$depth))
 
-    expect_equal(rowSums(subm), s.edgeR[proportion == p]$count)
-    expect_equal(rowSums(subm), s.voom[proportion == p]$count)
+    expect_equal(rowSums(subm), s.edgeR[proportion == p]$count, check.names = FALSE)
+    expect_equal(rowSums(subm), s.voom[proportion == p]$count, check.names = FALSE)
 
     # confirm that edgeR on that matrix gives the same results
     subm.results = edgeR(subm, treatment=treatment)
