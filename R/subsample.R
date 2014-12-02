@@ -47,7 +47,8 @@
 #'                  method=c("edgeR", "DESeq2", "voomLimma"))
 #' 
 #' @import data.table
-#' @import dplyr
+#' @importFrom dplyr group_by do mutate filter
+#' @import magrittr
 #' @importFrom qvalue qvalue
 #' 
 #' @export
@@ -154,7 +155,7 @@ subsample <-
         }
 
         # turn into a subsamples object
-        ret = as.data.table(ret)
+        ret = as.data.table(as.data.frame(ret))
         class(ret) = c("subsamples", class(ret))
         attr(ret, "seed") = seed
 

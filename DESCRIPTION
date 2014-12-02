@@ -16,6 +16,7 @@ Imports:
     dplyr,
     tidyr,
     ggplot2,
+    magrittr,
     qvalue (>= 1.99),
     digest
 Suggests:

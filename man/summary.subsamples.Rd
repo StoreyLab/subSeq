@@ -30,7 +30,8 @@ with one row for each subsampling depth, containing the metrics
 \item{significant}{number of genes found significant at the given FDR}
 \item{pearson}{Pearson correlation of the coefficient estimates with the oracle}
 \item{spearman}{Spearman correlation of the coefficient estimates with the oracle}
-\item{MSE}{mean squared error between the coefficient estimates at the oracle}
+\item{concordance}{Concordance correlation of the coefficient estimates with the oracle}
+\item{MSE}{mean squared error between the coefficient estimates and the oracle}
 \item{estFDP}{estimated FDP: the estimated false discovery proportion, as calculated from the
 average oracle local FDR within genes found significant at this depth}
 \item{rFDP}{relative FDP: the proportion of genes found significant at this depth that were not found
@@ -50,6 +51,11 @@ This thus summarizes how closely each agrees with the full experiment: if very
 low-depth subsamples still agree, it means that the depth is high enough that
 the depth does not make a strong qualitative difference.
 
+The concordance correlation coefficient is described in Lin 1989.
+Its advantage over the Pearson is that it takes into account not only
+whether the coefficients compared to the oracle close to a straight line,
+but whether that line is close to the x = y line.
+
 Note that selecting average=TRUE averages the depths of the replicates
 (as two subsamplings with identical proportions may have different depths by
 chance). This may lead to depths that are not integers.
@@ -65,5 +71,9 @@ ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
                  method=c("edgeR", "DESeq2", "voomLimma"))
 
 ss.summary = summary(ss)
+}
+\references{
+Lawrence I-Kuei Lin (March 1989). "A concordance correlation coefficient to evaluate reproducibility".
+Biometrics (International Biometric Society) 45 (1): 255–268.
 }
 

@@ -10,7 +10,8 @@
 #' @param ... further arguments passed to or from other methods.
 #' 
 #' @import ggplot2
-#' @import tidyr
+#' @importFrom dplyr filter group_by mutate
+#' @importFrom tidyr gather
 #' 
 #' @export
 plot.summary.subsamples <-

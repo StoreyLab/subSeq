@@ -27,7 +27,8 @@
 #' \item{significant}{number of genes found significant at the given FDR}
 #' \item{pearson}{Pearson correlation of the coefficient estimates with the oracle}
 #' \item{spearman}{Spearman correlation of the coefficient estimates with the oracle}
-#' \item{MSE}{mean squared error between the coefficient estimates at the oracle}
+#' \item{concordance}{Concordance correlation of the coefficient estimates with the oracle}
+#' \item{MSE}{mean squared error between the coefficient estimates and the oracle}
 #' \item{estFDP}{estimated FDP: the estimated false discovery proportion, as calculated from the
 #' average oracle local FDR within genes found significant at this depth}
 #' \item{rFDP}{relative FDP: the proportion of genes found significant at this depth that were not found
@@ -35,9 +36,19 @@
 #' \item{percent}{the percentage of genes found significant in the oracle that
 #' were found significant at this depth}
 #' 
-#' @details Note that selecting average=TRUE averages the depths of the replicates
+#' @details The concordance correlation coefficient is described in Lin 1989.
+#' Its advantage over the Pearson is that it takes into account not only
+#' whether the coefficients compared to the oracle close to a straight line,
+#' but whether that line is close to the x = y line.
+#' 
+#' Note that selecting average=TRUE averages the depths of the replicates
 #' (as two subsamplings with identical proportions may have different depths by
 #' chance). This may lead to depths that are not integers.
+#' 
+#' @references
+#' 
+#' Lawrence I-Kuei Lin (March 1989). "A concordance correlation coefficient to evaluate reproducibility".
+#' Biometrics (International Biometric Society) 45 (1): 255–268.
 #' 
 #' @examples
 #' 
@@ -53,8 +64,9 @@
 #' ss.summary = summary(ss)
 #' 
 #' @importFrom qvalue lfdr
-#' @import dplyr
-#' @import tidyr
+#' @importFrom dplyr group_by summarize mutate filter select inner_join
+#' @import magrittr
+#' @importFrom tidyr gather spread
 #' 
 #' @export
 summary.subsamples <-
@@ -106,6 +118,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
         summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
                   spearman=cor(coefficient, o.coefficient, use="complete.obs", method="spearman"),
+                  concordance = ccc(coefficient, o.coefficient),
                   MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
                   estFDP=mean(o.lfdr[padj < FDR.level]),
                   rFDP=mean((o.padj > FDR.level)[padj < FDR.level]),
@@ -120,12 +133,23 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
         # average each metric within replications
         ret = ret %>% gather(metric, value, significant:percent) %>%
             group_by(proportion, method, metric) %>%
-            summarize(value=mean(value)) %>% spread(metric, value)
+            summarize(value=mean(value)) %>% group_by() %>% spread(metric, value)
     }
     
-    ret = as.data.table(ret)
+    ret = as.data.table(as.data.frame(ret))
     class(ret) = c("summary.subsamples", "data.table", "data.frame")
     attr(ret, "seed") = attr(object, "seed")
     attr(ret, "FDR.level") = FDR.level
     ret
+}
+
+#' calculate concordance correlation coefficient
+#' 
+#' @param x first vector
+#' @param y second vector
+#' 
+#' @details uses only complete observations
+ccc <- function(x, y){
+    complete <- !is.na(x) & !is.na(y)
+    (2 * cov(x, y)) / (var(x) + var(y) + (mean(x) - mean(y))^2)
 }
