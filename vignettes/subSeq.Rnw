@@ -23,7 +23,7 @@ foo <- packageDescription("subSeq")
 @
 
 \title{subSeq Package Vignette (Version \Sexpr{foo$Version})}
-\author{David G. Robinson}
+\author{David G. Robinson and John D. Storey}
 \maketitle
 
 \tableofcontents
@@ -67,8 +67,8 @@ hammer = hammer.eset
 We then filter such that no genes had fewer than 5 reads:
 
 <<setup_hammer, dependson="load_subSeq">>=
-hammer.counts = hammer@assayData$exprs[, 1:4]
-hammer.design = hammer@phenoData@data[1:4, ]
+hammer.counts = Biobase::exprs(hammer)[, 1:4]
+hammer.design = Biobase::pData(hammer)[1:4, ]
 hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 @
 

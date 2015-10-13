@@ -39,8 +39,8 @@
 #' 
 #' data(hammer)
 #' 
-#' hammer.counts = hammer@@assayData$exprs[, 1:4]
-#' hammer.design = hammer@@phenoData@@data[1:4, ]
+#' hammer.counts = Biobase::exprs(hammer)[, 1:4]
+#' hammer.design = Biobase::pData(hammer)[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
@@ -50,7 +50,7 @@
 #' @importFrom dplyr group_by do mutate filter
 #' @import magrittr
 #' @importFrom qvalue qvalue
-#' 
+#' @importFrom Biobase exprs pData
 #' @export
 subsample <-
     function(counts, proportions, method="edgeR", replications=1,
@@ -89,11 +89,14 @@ subsample <-
                 if (is.function(m)) {
                     handler = m
                 }
-                else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
-                    handler = get(m, mode="function", envir=as.environment("package:subSeq"))
-                }
+       #         else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
+        #            handler = get(m, mode="function", envir=as.environment("package:subSeq"))
+         #       }
                 else if (exists(m, mode="function", envir=env)) {
                     handler = get(m, mode="function", envir=env)
+                }
+                else if (m %in% c("edgeR", "voomLimma", "DESeq2", "edgeR.glm")) {
+                    handler = get(m, mode="function")
                 }
                 else {
                     stop(paste("Could not find handler", m))

@@ -1,33 +1,19 @@
 Package: subSeq
 Type: Package
 Title: Subsampling of high-throughput sequencing count data
-Version: 0.99.0
-Date: 2014-7-26
-Author: David Robinson
-Maintainer: David Robinson <dgrtwo@princeton.edu>, John Storey
-    <jstorey@princeton.edu>
-biocViews: Sequencing, HighThroughputSequencing, RNAseq, Transcription,
-    GeneExpression, DifferentialExpression
+Version: 0.99.8
+Author: David Robinson, John D. Storey, with contributions from Andrew J. Bass
+Maintainer: Andrew J. Bass <ajbass@princeton.edu>, John D. Storey
+ <jstorey@princeton.edu>
+biocViews: Sequencing, Transcription, RNASeq, GeneExpression,
+        DifferentialExpression
 Description: Subsampling of high throughput sequencing count data for use in
-    experiment design and analysis
+    experiment design and analysis.
 VignetteBuilder: knitr
-Imports:
-    data.table,
-    dplyr,
-    tidyr,
-    ggplot2,
-    magrittr,
-    qvalue (>= 1.99),
-    digest
-Suggests:
-    limma,
-    edgeR,
-    DESeq2,
-    DEXSeq (>= 1.9.7),
-    testthat,
-    pasilla,
-    knitr
-Depends:
-    R (>= 2.10)
+Imports: data.table, dplyr, tidyr, ggplot2, magrittr, qvalue (>= 1.99),
+        digest, Biobase
+Suggests: limma, edgeR, DESeq2, DEXSeq (>= 1.9.7), testthat, knitr
+Depends: R (>= 3.2)
 URL: http://github.com/StoreyLab/subSeq
 License: MIT + file LICENSE
+

@@ -7,6 +7,14 @@
 #' 
 #' @details If there are columns in some subsamples objects that are not in others,
 #' the missing values will be filled with NA
+#' @examples 
+#' # see ?subsample to see how ss is generated
+#' data(ss)
+#' 
+#' # combine multiple subsampling objects (in this example they happen to be the same object)
+#' ss_new <- combineSubsamples(ss, ss)
+#' 
+#' @return subSeq object
 #' 
 #' @export
 combineSubsamples <-

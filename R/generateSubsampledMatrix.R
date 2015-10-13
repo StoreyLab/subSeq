@@ -34,8 +34,8 @@
 #' 
 #' data(hammer)
 #' 
-#' hammer.counts = hammer@@assayData$exprs[, 1:4]
-#' hammer.design = hammer@@phenoData@@data[1:4, ]
+#' hammer.counts = Biobase::exprs(hammer)[, 1:4]
+#' hammer.design = Biobase::pData(hammer)[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
@@ -44,17 +44,11 @@
 #' seed = getSeed(ss)
 #' 
 #' # generate the matrices used at each subsample
-#' subm.01 = generateSubsampledMatrix(HammerCounts, .01, seed)
-#' subm.1 = generateSubsampledMatrix(HammerCounts, .1, seed)
-#' 
-#' # run with more depths
-#' 
-#' ss = subsample(hammer.counts, c(.01, .05, .1, .5, 1),
-#'                  treatment=hammer.design$protocol,
-#'                  method=c("edgeR", "DESeq2", "voomLimma"), seed=seed)
+#' subm.01 = generateSubsampledMatrix(hammer.counts, .01, seed)
+#' subm.1 = generateSubsampledMatrix(hammer.counts, .1, seed)
 #' 
 #' @import digest
-#' 
+#' @return subsamples matrix at specified subsampling proportion
 #' @export
 generateSubsampledMatrix <- function(counts, proportion, seed, replication=1) {
     if (!missing(seed)) {
@@ -99,15 +93,15 @@ generateSubsampledMatrix <- function(counts, proportion, seed, replication=1) {
 #' 
 #' data(hammer)
 #' 
-#' hammer.counts = hammer@@assayData$exprs[, 1:4]
-#' hammer.design = hammer@@phenoData@@data[1:4, ]
+#' hammer.counts = Biobase::exprs(hammer)[, 1:4]
+#' hammer.design = Biobase::pData(hammer)[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
 #'                  method=c("edgeR", "DESeq2", "voomLimma"))
 #' 
 #' seed = getSeed(ss)
-#'
+#' @return get seed of subSeq object
 #' @export
 getSeed <- function(ss) {
     attr(ss, "seed")

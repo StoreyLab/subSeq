@@ -13,6 +13,20 @@
 #' @importFrom dplyr filter group_by mutate
 #' @importFrom tidyr gather
 #' 
+#' @examples
+#' if (interactive()) {
+#'   # import the subsampling object (see ?subsample to see how ss is created)
+#'   data(ss)
+#'   
+#'   # summarise object
+#'   ss <- summary(ss)
+#'   
+#'   # plot
+#'   plot(ss)
+#' }
+#' 
+#' @return see description 
+#' 
 #' @export
 plot.summary.subsamples <-
 function(x, ...) {
@@ -62,6 +76,16 @@ function(x, ...) {
 #' @param x a \code{subsamples} object
 #' @param ... further arguments passed to or from other methods.
 #' 
+#' @return plot a subSeq object
+#' @examples
+#' if (interactive()) {
+#' # import the subsampling object (see ?subsample to see how ss is created)
+#' data(ss)
+#' 
+#' # plot subsample object
+#' plot(ss)
+#' }
+
 #' @export
 plot.subsamples <-
     function(x, ...) {

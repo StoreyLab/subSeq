@@ -48,19 +48,12 @@
 #' @references
 #' 
 #' Lawrence I-Kuei Lin (March 1989). "A concordance correlation coefficient to evaluate reproducibility".
-#' Biometrics (International Biometric Society) 45 (1): 255–268.
+#' Biometrics (International Biometric Society) 45 (1): 255-268.
 #' 
 #' @examples
-#' 
-#' data(hammer)
-#' 
-#' hammer.counts = hammer@@assayData$exprs[, 1:4]
-#' hammer.design = hammer@@phenoData@@data[1:4, ]
-#' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
-#' 
-#' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
-#'                  method=c("edgeR", "DESeq2", "voomLimma"))
-#' 
+#' # see subsample function to see how ss is generated
+#' data(ss)
+#' # summarise subsample object
 #' ss.summary = summary(ss)
 #' 
 #' @importFrom qvalue lfdr
@@ -143,12 +136,6 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
     ret
 }
 
-#' calculate concordance correlation coefficient
-#' 
-#' @param x first vector
-#' @param y second vector
-#' 
-#' @details uses only complete observations
 ccc <- function(x, y){
     complete <- !is.na(x) & !is.na(y)
     (2 * cov(x, y)) / (var(x) + var(y) + (mean(x) - mean(y))^2)
