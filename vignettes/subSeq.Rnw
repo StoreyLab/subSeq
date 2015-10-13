@@ -169,7 +169,7 @@ There are five methods of RNA-Seq differential expression analysis built in to \
 \item \texttt{edgeR} Uses edgeR's exact negative binomial test to compare two conditions \cite{Robinson:2010p11822} 
 \item \texttt{edgeR.glm} Uses edgeR's generalized linear model, which allows fitting a continuous variable and including covariates.
 \item \texttt{voomLimma} Uses \texttt{voom} from the \texttt{edgeR} package to normalize the data, then apply's limma's linear model with empirical Bayesian shrinkage \cite{Law:2014}.
-\item \texttt{DESeq2} Applies the negative binomial Wald test from the \texttt{DESeq2} package \cite{Anders:2010}. DESeq2 is notable for including shrinkage on the parameters.
+\item \texttt{DESeq2} Applies the negative binomial Wald test from the \texttt{DESeq2} package \cite{Love:2014}. DESeq2 is notable for including shrinkage on the parameters.
 \item \texttt{DEXSeq} Uses a negative binomial generalized linear model to look for differential exon usage in mapped exon data (see \nameref{sec:DEXSeq}) \cite{Anders:2012es}.
 \end{itemize}
 
