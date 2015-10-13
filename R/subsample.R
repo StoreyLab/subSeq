@@ -69,7 +69,6 @@ subsample <-
         if (error > 1e-4 | any(counts < 0)) {
             stop("Counts should be unnormalized integer counts (not, e.g., RPKM)")
         }
-        
         if (is.null(seed)) {
             # come up with a random initial seed (can't use current one, since
             # the point is to save it for later)
@@ -134,11 +133,11 @@ subsample <-
                 }
             }
             ret$depth = sum(subcounts)    
-            
+  
             # in any cases of no reads, fix coefficient/pvalue to 0/1
             if ("count" %in% colnames(ret)) {
                 if ("pvalue" %in% colnames(ret)) {
-                    ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = 1
+                    ret$pvalue[ret$count == 0 | is.na(ret$pvalue)] = NA #new qvalue accepts NA values
                 }
                 if ("coefficient" %in% colnames(ret)) {
                     ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
@@ -171,9 +170,9 @@ subsample <-
 # q-values, even though those genes have no impact on the rest of the genes.
 qvalue.filtered1 = function(p) {
     # given a vector of p-values
-    q.without1 = qvalue(p[p < 1])
+    q.without1 = qvalue(p)$qvalue
     # when p == 1, the FDR is pi0
-    q = rep(q.without1$pi0, length(p))
-    q[p < 1] = q.without1$qvalue
-    q
+  #  q = rep(q.without1$pi0, length(p))
+   # q[p < 1] = q.without1$qvalue
+    q.without1
 }

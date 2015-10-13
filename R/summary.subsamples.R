@@ -88,7 +88,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
         ret[p != 1] = non1.lfdr
         ret
     }
-    oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr1(pvalue))
+    oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr(pvalue))
 
     # compute adjusted p-values in oracles and data
     if (p.adjust.method == "qvalue") {

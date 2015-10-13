@@ -10,7 +10,7 @@ biocViews: Sequencing, Transcription, RNASeq, GeneExpression,
 Description: Subsampling of high throughput sequencing count data for use in
     experiment design and analysis.
 VignetteBuilder: knitr
-Imports: data.table, dplyr, tidyr, ggplot2, magrittr, qvalue (>= 1.99),
+Imports: data.table, dplyr, tidyr, ggplot2, magrittr, qvalue (>= 2.1.0),
         digest, Biobase
 Suggests: limma, edgeR, DESeq2, DEXSeq (>= 1.9.7), testthat, knitr
 Depends: R (>= 3.2)
