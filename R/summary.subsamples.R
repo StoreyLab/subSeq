@@ -67,7 +67,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
          p.adjust.method="qvalue", ...) {
     # find the oracle for each method
     tab = as.data.frame(object)
-
+    tab = tab %>% filter(count != 0)
     tab = tab %>% mutate(method=as.character(method))
 
     if (is.null(oracle)) {
