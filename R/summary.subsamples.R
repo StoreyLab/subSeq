@@ -115,7 +115,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
                   MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
                   estFDP=mean(o.lfdr[padj < FDR.level]),
                   rFDP=mean((o.padj > FDR.level)[padj < FDR.level]),
-                  percent=mean(padj[o.padj < FDR.level] < FDR.level))
+                  percent=mean(padj[o.padj < FDR.level] < FDR.level), pi0 = unique(pi0))
 
     # any case where none are significant, the estFDP/rFDP should be 0 (not NaN)
     # since technically there were no false discoveries
