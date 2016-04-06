@@ -8,7 +8,7 @@ edgeR <-
             }
             pair = levels(treatment)
         }
-        
+
         d = edgeR::DGEList(counts=count.matrix, group=treatment)
         d = edgeR::calcNormFactors(d)
         d = edgeR::estimateCommonDisp(d)
@@ -37,10 +37,10 @@ edgeR.glm <-
 
 voomLimma <-
     function(count.matrix, treatment, ...) {
-        v = limma::voom(count.matrix, ...)
+        v = limma::voom(count.matrix, design = model.matrix(~ treatment), normalize.method = "quantile", ...)
         f = limma::lmFit(v, model.matrix(~ treatment))
         e = limma::eBayes(f)
-        data.frame(coefficient=f$coefficients[, 2], pvalue=e$p.value[, 2])
+        data.frame(coefficient=f$coefficients[, 2], pvalue=e$p.value[, 2], t.test = e$t[,2])
     }
 
 DESeq2 <-
@@ -65,7 +65,7 @@ DEXSeq <-
         ecs = DEXSeq::estimateSizeFactors(ecs)
         ecs = DEXSeq::estimateDispersions(ecs, fitType='local')
         ecs = DEXSeq::testForDEU(ecs)
-        
+
         ecs = DEXSeq::estimateExonFoldChanges(ecs)
         result = as.data.table(as.data.frame(DEXSeq::DEXSeqResults(ecs)))
 

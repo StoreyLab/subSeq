@@ -1,17 +1,17 @@
 #' calculate summary statistics for each subsampled depth in a subsamples object
-#' 
+#'
 #' Given a subsamples object, calculate a metric for each depth that summarizes
 #' the power, the specificity, and the accuracy of the effect size estimates at
 #' that depth.
-#' 
+#'
 #' To perform these calculations, one must compare each depth to an "oracle" depth,
 #' which, if not given explicitly, is assumed to be the highest subsampling depth.
 #' This thus summarizes how closely each agrees with the full experiment: if very
 #' low-depth subsamples still agree, it means that the depth is high enough that
 #' the depth does not make a strong qualitative difference.
-#' 
+#'
 #' @param object a subsamples object
-#' @param oracle a subsamples object of one depth showing what each depth should 
+#' @param oracle a subsamples object of one depth showing what each depth should
 #' be compared to; if NULL, each will be compared to the highest depth
 #' @param FDR.level A false discovery rate used to calculate the number of genes
 #' found significant at each level
@@ -20,10 +20,10 @@
 #' @param p.adjust.method Method to correct p-values in order to determine significance.
 #' By default "qvalue", but can also be given any method that can be given to p.adjust.
 #' @param ... further arguments passed to or from other methods.
-#' 
+#'
 #' @return A summary object, which is a \code{data.table}
 #' with one row for each subsampling depth, containing the metrics
-#' 
+#'
 #' \item{significant}{number of genes found significant at the given FDR}
 #' \item{pearson}{Pearson correlation of the coefficient estimates with the oracle}
 #' \item{spearman}{Spearman correlation of the coefficient estimates with the oracle}
@@ -35,35 +35,35 @@
 #' significant in the oracle}
 #' \item{percent}{the percentage of genes found significant in the oracle that
 #' were found significant at this depth}
-#' 
+#'
 #' @details The concordance correlation coefficient is described in Lin 1989.
 #' Its advantage over the Pearson is that it takes into account not only
 #' whether the coefficients compared to the oracle close to a straight line,
 #' but whether that line is close to the x = y line.
-#' 
+#'
 #' Note that selecting average=TRUE averages the depths of the replicates
 #' (as two subsamplings with identical proportions may have different depths by
 #' chance). This may lead to depths that are not integers.
-#' 
+#'
 #' @references
-#' 
+#'
 #' Lawrence I-Kuei Lin (March 1989). "A concordance correlation coefficient to evaluate reproducibility".
 #' Biometrics (International Biometric Society) 45 (1): 255-268.
-#' 
+#'
 #' @examples
 #' # see subsample function to see how ss is generated
 #' data(ss)
 #' # summarise subsample object
 #' ss.summary = summary(ss)
-#' 
+#'
 #' @importFrom qvalue lfdr
 #' @importFrom dplyr group_by summarize mutate filter select inner_join
 #' @import magrittr
 #' @importFrom tidyr gather spread
-#' 
+#'
 #' @export
 summary.subsamples <-
-function(object, oracle=NULL, FDR.level=.05, average=FALSE, 
+function(object, oracle=NULL, FDR.level=.05, average=FALSE,
          p.adjust.method="qvalue", ...) {
     # find the oracle for each method
     tab = as.data.frame(object)
@@ -88,7 +88,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
         ret[p != 1] = non1.lfdr
         ret
     }
-    oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr(pvalue))
+    oracles = oracles %>% group_by(method) %>% mutate(lfdr=qvalue::lfdr(pvalue))
 
     # compute adjusted p-values in oracles and data
     if (p.adjust.method == "qvalue") {
@@ -104,9 +104,9 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
     sub.oracle = oracles %>% select(method, ID, o.padj=padj,
                                      o.coefficient=coefficient, o.lfdr=lfdr)
     tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
-    
+
     # summary operation
-    ret = tab %>% group_by(depth, proportion, method, replication) %>%
+    ret = tab %>% filter(!is.na(qvalue)) %>% group_by(depth, proportion, method, replication) %>%
         mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
         summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
@@ -115,7 +115,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
                   MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
                   estFDP=mean(o.lfdr[padj < FDR.level]),
                   rFDP=mean((o.padj > FDR.level)[padj < FDR.level]),
-                  percent=mean(padj[o.padj < FDR.level] < FDR.level))
+                  percent=mean(padj[o.padj < FDR.level] < FDR.level), pi0 = unique(pi0))
 
     # any case where none are significant, the estFDP/rFDP should be 0 (not NaN)
     # since technically there were no false discoveries
@@ -128,7 +128,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
             group_by(proportion, method, metric) %>%
             summarize(value=mean(value)) %>% group_by() %>% spread(metric, value)
     }
-    
+
     ret = as.data.table(as.data.frame(ret))
     class(ret) = c("summary.subsamples", "data.table", "data.frame")
     attr(ret, "seed") = attr(object, "seed")
