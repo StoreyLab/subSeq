@@ -146,7 +146,7 @@ subsample <-
         if (qvalues) {
             # calculate q-values
             ret0 = ret %>% filter(proportion == 1) %>% group_by(method) %>%
-                  summarise(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
+                  summarize(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
             ret = ret %>% inner_join(ret0, by = c("method"))
             ret = ret %>% group_by(proportion, method, replication) %>%
                 mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=unique(pi0))) %>% group_by()
