@@ -37,7 +37,9 @@ edgeR.glm <-
 
 voomLimma <-
     function(count.matrix, treatment, ...) {
-        v = limma::voom(count.matrix, design = model.matrix(~ treatment), normalize.method = "quantile", ...)
+        d = edgeR::DGEList(counts=count.matrix, group=treatment)
+        d = edgeR::calcNormFactors(d)
+        v = limma::voom(d, ...)
         f = limma::lmFit(v, model.matrix(~ treatment))
         e = limma::eBayes(f)
         data.frame(coefficient=f$coefficients[, 2], pvalue=e$p.value[, 2], t.test = e$t[,2])

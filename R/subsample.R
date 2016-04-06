@@ -115,23 +115,14 @@ subsample <-
         perform.subsampling <- function(method, proportion, replication) {
             # generate subcounts and use handler
             subcounts = generateSubsampledMatrix(counts, proportion, seed, replication)
+            id = which(rowSums(subcounts) >= 5)
+            subcounts = subcounts[id,] ### Filter counts at zero
+            if (length(id) == 0) return("Error: counts too low at subsampling proportion")
             handler = methods[[method]]
             ret = handler(subcounts, ...)
-
-            # postprocessing
-            if (NROW(ret) == NROW(counts)) {
-                # if the output is the same size as the input, assume there
-                # is a one-to-one gene correspondence
-                # add gene names (ID) and per-gene counts
-                ret$ID = rownames(counts)
-                ret$count = as.integer(rowSums(subcounts))
-            }
-            else {
-                if (is.null(ret$ID)) {
-                    stop(paste("If handler does not return one row per gene,",
-                               "it must include an ID column."))
-                }
-            }
+             # add gene names (ID) and per-gene counts
+            ret$ID = rownames(subcounts)
+            ret$count = as.integer(rowSums(subcounts))
             ret$depth = sum(subcounts)
 
             # in any cases of no reads, fix coefficient/pvalue to 0/1
@@ -158,7 +149,7 @@ subsample <-
                   summarise(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
             ret = ret %>% inner_join(ret0, by = c("method"))
             ret = ret %>% group_by(proportion, method, replication) %>%
-                mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=pi0[1])) %>% group_by()
+                mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=unique(pi0))) %>% group_by()
 
         }
 
