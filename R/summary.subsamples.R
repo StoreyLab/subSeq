@@ -67,7 +67,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
          p.adjust.method="qvalue", ...) {
     # find the oracle for each method
     tab = as.data.frame(object)
-    tab = tab %>% filter(count != 0)
+    tab = tab %>% filter(count != 0, !is.na(qvalue))
     tab = tab %>% mutate(method=as.character(method))
 
     if (is.null(oracle)) {
@@ -88,7 +88,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
         ret[p != 1] = non1.lfdr
         ret
     }
-    oracles = oracles %>% group_by(method) %>% mutate(lfdr=qvalue::lfdr(pvalue))
+    oracles = oracles %>% group_by(method) %>% mutate(lfdr=lfdr(pvalue))
 
     # compute adjusted p-values in oracles and data
     if (p.adjust.method == "qvalue") {
@@ -106,7 +106,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
     tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
 
     # summary operation
-    ret = tab %>% filter(!is.na(qvalue)) %>% group_by(depth, proportion, method, replication) %>%
+    ret = tab %>% group_by(depth, proportion, method, replication) %>%
         mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
         summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
@@ -115,7 +115,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
                   MSE=mean((coefficient[valid] - o.coefficient[valid])^2),
                   estFDP=mean(o.lfdr[padj < FDR.level]),
                   rFDP=mean((o.padj > FDR.level)[padj < FDR.level]),
-                  percent=mean(padj[o.padj < FDR.level] < FDR.level), pi0 = unique(pi0))
+                  percent=mean(padj[o.padj < FDR.level] < FDR.level))
 
     # any case where none are significant, the estFDP/rFDP should be 0 (not NaN)
     # since technically there were no false discoveries
