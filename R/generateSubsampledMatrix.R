@@ -50,24 +50,27 @@
 #' @import digest
 #' @return subsamples matrix at specified subsampling proportion
 #' @export
-generateSubsampledMatrix <- function(counts, proportion, seed, replication=1) {
-    if (!missing(seed)) {
-        # calculate seed using an md5 hash of the global seed and the
-        # subsampling proportion
-        s = readBin(digest(c(seed, proportion, replication), raw=TRUE), "integer")
-        set.seed(s)
-    }
-    else if (is.null(seed)) {
-        stop(paste("Given a NULL seed: Probably was an error retrieving",
-             "the seed from the desired object"))
-    }
-    # apply random binomial sampling to each cell
-    # keep row names
-    rns <- rownames(counts)
-    n = nrow(counts)
-    ret <- apply(counts, 2, function(x) rbinom(n, x, proportion))
-    rownames(ret) <- rns
-    ret
+generateSubsampledMatrix <- function(counts, indeces, proportions, seed, replication=1) {
+  if (!missing(seed)) {
+    # calculate seed using an md5 hash of the global seed and the
+    # subsampling proportions
+    s = readBin(digest(c(seed, proportions, replication, indeces), raw=TRUE), "integer")
+    set.seed(s)
+  }
+  else if (is.null(seed)) {
+    stop(paste("Given a NULL seed: Probably was an error retrieving",
+               "the seed from the desired object"))
+  }
+  # apply random binomial sampling to each cell
+  # keep row names
+  rns <- rownames(counts)[indeces]
+  n = nrow(counts)
+  ret <- apply( t( as.array( as.numeric(inds))), 2, function(ind){
+    rbinom(n, counts[ , ind], proportions[ ind])
+  })
+
+  rownames(ret) <- rns
+  ret
 }
 
 #' Extract the global random seed from a subsamples object
@@ -104,5 +107,5 @@ generateSubsampledMatrix <- function(counts, proportion, seed, replication=1) {
 #' @return get seed of subSeq object
 #' @export
 getSeed <- function(ss) {
-    attr(ss, "seed")
+  attr(ss, "seed")
 }
