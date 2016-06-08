@@ -4,8 +4,12 @@
 #' data representing mapped reads across multiple samples in many
 #' genes. For each sample, perform some statistical operations.
 #'
+#'
 #' @param counts Matrix of unnormalized counts
+#' @param treatments Vector (factor) of experimental treatments corresponding to
+#' collumns of counts
 #' @param proportions Vector of subsampling proportions in (0, 1]
+#' @param bioReplicates Vector specifying number of samples from each treatment used in subsampling
 #' @param method One or more methods to be performed at each subsample,
 #' such as edgeR or DESeq (see Details)
 #' @param replications Number of replications to perform at each depth
@@ -16,7 +20,7 @@
 #' @param env Environment in which to find evaluate additional hander functions
 #' that are given by name
 #' @param ... Other arguments given to the handler, such as \code{treatment}
-#'
+#' 
 #' @return A subsample S3 object, which is a data.table containing
 #'
 #' \item{pvalue}{A p-value calculated for each gene by the handler}
@@ -42,124 +46,143 @@
 #' hammer.counts = Biobase::exprs(hammer)[, 1:4]
 #' hammer.design = Biobase::pData(hammer)[1:4, ]
 #' hammer.counts = hammer.counts[rowSums(hammer.counts) >= 5, ]
-#'
-#' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
-#'                  method=c("edgeR", "DESeq2", "voomLimma"))
+#' 
+#' ss = subsample(counts=        hammer.counts,
+#'                treatments =   hammer.design$protocol,
+#'                proportions=   c(.01, .1, 1),
+#'                bioReplicates= c(2),
+#'                method=        c("edgeR", "voomLimma"))
 #'
 #' @import data.table
 #' @importFrom dplyr group_by do mutate filter
 #' @import magrittr
-#' @importFrom qvalue qvalue
+#' @importFrom qvalue qvalue lfdr
 #' @importFrom Biobase exprs pData
 #' @export
 subsample <-
-    function(counts, proportions, method="edgeR", replications=1,
-             seed=NULL, qvalues = TRUE, env=parent.frame(), ...) {
-        # error checking
-        if (length(proportions) == 0) {
-            stop("No proportions to sample")
+  function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
+           replacement= FALSE, ballanced.proportions= TRUE, seed=NULL, qvalues = TRUE, env=parent.frame(), ...) {
+    # error checking
+    if (length(proportions) == 0) {
+      stop("No proportions to sample")
+    }
+    if (length( bioReplicates) == 0){
+      stop("No numbers of bioReplicates to sample")
+    }
+    if (any(proportions > 1 | proportions == 0)) {
+      stop("Proportions must be in range (0, 1]")
+    }
+    if ( !( bioReplicates %in% seq(2, dim(counts)[2]))){
+      stop( "The number of biological replicates must be greater
+            than one and less than the number of samples")
+    }
+    
+    # check that the counts is an unnormalized numeric matrix
+    counts = as.matrix(counts)
+    error = max(abs(round(counts) - counts))
+    if (error > 1e-4 | any(counts < 0)) {
+      stop("Counts should be unnormalized integer counts (not, e.g., RPKM)")
+    }
+    if (is.null(seed)) {
+      # come up with a random initial seed (can't use current one, since
+      # the point is to save it for later)
+      seed = sample(.Machine$integer.max, 1)
+    }
+    
+    # create a list mapping function name to function
+    if (is.function(method)) {
+      # if given a single function, make that into a list
+      methods = list(method)
+      names(methods) = deparse(substitute(method))
+    } else {
+      methods = lapply(method, function(m) {
+        # function can be given directly: otherwise, check subSeq package
+        # then caller's env
+        if (is.function(m)) {
+          handler = m
         }
-        if (any(proportions > 1 | proportions == 0)) {
-            stop("Proportions must be in range (0, 1]")
+        #         else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
+        #            handler = get(m, mode="function", envir=as.environment("package:subSeq"))
+        #       }
+        else if (exists(m, mode="function", envir=env)) {
+          handler = get(m, mode="function", envir=env)
         }
-
-        # check that the counts is an unnormalized numeric matrix
-        counts = as.matrix(counts)
-        error = max(abs(round(counts) - counts))
-        if (error > 1e-4 | any(counts < 0)) {
-            stop("Counts should be unnormalized integer counts (not, e.g., RPKM)")
-        }
-        if (is.null(seed)) {
-            # come up with a random initial seed (can't use current one, since
-            # the point is to save it for later)
-            seed = sample(.Machine$integer.max, 1)
-        }
-
-        # create a list mapping function name to function
-        if (is.function(method)) {
-            # if given a single function, make that into a list
-            methods = list(method)
-            names(methods) = deparse(substitute(method))
+        else if (m %in% c("edgeR", "voomLimma", "DESeq2", "edgeR.glm")) {
+          handler = get(m, mode="function")
         }
         else {
-            methods = lapply(method, function(m) {
-                # function can be given directly: otherwise, check subSeq package
-                # then caller's env
-                if (is.function(m)) {
-                    handler = m
-                }
-       #         else if (exists(m, mode="function", envir=as.environment("package:subSeq"))) {
-        #            handler = get(m, mode="function", envir=as.environment("package:subSeq"))
-         #       }
-                else if (exists(m, mode="function", envir=env)) {
-                    handler = get(m, mode="function", envir=env)
-                }
-                else if (m %in% c("edgeR", "voomLimma", "DESeq2", "edgeR.glm")) {
-                    handler = get(m, mode="function")
-                }
-                else {
-                    stop(paste("Could not find handler", m))
-                }
-                handler
-            })
-            names(methods) = method
+          stop(paste("Could not find handler", m))
         }
-
-        # perform one for each method x proportion x replication
-        params = expand.grid(method=names(methods), proportion=proportions, replication=1:replications)
-        # don't need replications of full depth (will be identical)
-        params = params %>% filter(!(proportion == 1 & replication > 1))
-
-        # apply method to each subsample the specified number of times
-        #m.ret = as.data.table(do.call(rbind, lapply(1:nrow(prop.reps),
-        perform.subsampling <- function(method, proportion, replication) {
-            # generate subcounts and use handler
-            subcounts = generateSubsampledMatrix(counts, proportion, seed, replication)
-            id = which(rowSums(subcounts) >= 5)
-            subcounts = subcounts[id,] ### Filter counts at zero
-            if (length(id) == 0) return("Error: counts too low at subsampling proportion")
-            handler = methods[[method]]
-            ret = handler(subcounts, ...)
-             # add gene names (ID) and per-gene counts
-            ret$ID = rownames(subcounts)
-            ret$count = as.integer(rowSums(subcounts))
-            ret$depth = sum(subcounts)
-
-            # in any cases of no reads, fix coefficient/pvalue to 0/1
-            if ("count" %in% colnames(ret)) {
-                if ("pvalue" %in% colnames(ret)) {
-                    ret$pvalue[ret$count == 0 | is.na(ret$pvalue) | ret$pvalue == 1] = NA #new qvalue accepts NA values
-                }
-                if ("coefficient" %in% colnames(ret)) {
-                    ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
-                }
-            }
-            ret
-        }
-
-        ret = params %>% group_by(method, proportion, replication) %>%
-            do(perform.subsampling(.$method, .$proportion, .$replication))
-
-
-
-        ## cleanup
-        if (qvalues) {
-            # calculate q-values
-            ret0 = ret %>% filter(proportion == 1) %>% group_by(method) %>%
-                  summarize(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
-            ret = ret %>% inner_join(ret0, by = c("method"))
-            ret = ret %>% group_by(proportion, method, replication) %>%
-                mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=unique(pi0))) %>% group_by()
-
-        }
-
-        # turn into a subsamples object
-        ret = as.data.table(as.data.frame(ret))
-        class(ret) = c("subsamples", class(ret))
-        attr(ret, "seed") = seed
-
-        return(ret)
+        handler
+      })
+      names(methods) = method
     }
+    
+    # perform one for each method x proportion x bioReplicates x replication
+    params = expand.grid(method=names(methods), proportion=proportions, biological.replicate= bioReplicates, replication=1:replications)
+    # don't need replications of full depth (will be identical)
+    params = params %>% filter(!(proportion == 1 & replication > 1))
+    # apply method to each subsample the specified number of times
+    #m.ret = as.data.table(do.call(rbind, lapply(1:nrow(prop.reps),
+    perform.ballanced.subsampling <- function(method, proportion, bioReplicates, replication) {
+      # resample biological replicates
+      inds <- getIndecesFromCatagoricalTreatment( treatments, bioReplicates, replacement, seed)
+      treatment <- treatments[inds]
+      #Get proportions for each index in inds
+      #Calculating colsums once would help efficientcy, but it needs to be done in correct place to be readable
+      if( ballanced.proportions == TRUE){
+        total.counts <- colSums( counts)
+        #ind.proportion * total.counts == min( total.counts)
+        ind.proportions <- proportion * min( total.counts) / total.counts[ inds]
+      } else {
+        ind.proprtions <- rep( proportion, length.out= length( inds))
+      }
+      # subsample reads and use handler
+      subcounts = generateSubsampledMatrix(counts, inds, ind.proportions, seed, replication)
+      id = which(rowSums(subcounts) >= 5)
+      subcounts = subcounts[id,] ### Filter counts at zero
+      if (length(id) == 0) return("Error: counts too low at subsampling proportion")
+      handler = methods[[method]]
+      #TODO(riley) calling handler in this way is a problem when treatment is not an argument
+      ret = handler(subcounts, treatment, ...)
+      # add gene names (ID) and per-gene counts
+      ret$ID = rownames(subcounts)
+      ret$count = as.integer(rowSums(subcounts))
+      ret$depth = sum(subcounts)
+      
+      # in any cases of no reads, fix coefficient/pvalue to 0/1
+      if ("count" %in% colnames(ret)) {
+        if ("pvalue" %in% colnames(ret)) {
+          ret$pvalue[ret$count == 0 | is.na(ret$pvalue) | ret$pvalue == 1] = NA #new qvalue accepts NA values
+        }
+        if ("coefficient" %in% colnames(ret)) {
+          ret$coefficient[ret$count == 0 | is.infinite(ret$coefficient)] = 0
+        }
+      }
+      ret
+    }
+    
+    ret = params %>% group_by(method, proportion, biological.replicate, replication) %>%
+      do(perform.ballanced.subsampling( .$method, .$proportion, .$biological.replicate, .$replication))
+    
+    ## cleanup
+    if (qvalues) {
+      # calculate q-values
+      ret0 = ret %>% filter(proportion == 1) %>% group_by(method) %>%
+        summarize(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
+      ret = ret %>% inner_join(ret0, by = c("method"))
+      ret = ret %>% group_by(proportion, method, replication) %>%
+        mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=unique(pi0))) %>% group_by()
+      
+    }
+    
+    # turn into a subsamples object
+    ret = as.data.table(as.data.frame(ret))
+    class(ret) = c("subsamples", class(ret))
+    attr(ret, "seed") = seed
+    
+    return(ret)
+  }
 
 # when calculating pi0, it is prudent to filter out cases where p-values are exactly 1.
 # for example, methods of differential expression tend to give p-values of 1 when
@@ -192,7 +215,7 @@ qvalue.fixedpi0 <- function (p, fdr.level = NULL, pfdr = FALSE, pi0s=NULL, ...)
     qvals[u[i]] <- min(qvals[u[i]], qvals[u[i + 1]])
   }
   qvals_out[rm_na] <- qvals
-  lfdr <- lfdr(p = p, pi0 = pi0s, ...)
+  lfdr <- qvalue::lfdr(p = p, pi0 = pi0s, ...)
   lfdr_out[rm_na] <- lfdr
   if (!is.null(fdr.level)) {
     retval <- list(call = match.call(), pi0 = pi0s, qvalues = qvals_out,

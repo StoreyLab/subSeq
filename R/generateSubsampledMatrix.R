@@ -9,11 +9,13 @@
 #' It is also useful for reproducing the results of an earlier run (see Details).
 #' 
 #' @param counts Original matrix of read counts
-#' @param proportion The specific proportion to subsample
+#' @param indeces A vector specifying the collumns to subsample
+#' @param proportions A vector specifying the subsampling proportion for for each element of indeces
 #' @param seed A subsampling seed, which can be extracted from a subsamples
 #' or summary.subsamples object. If not given, doesn't set the seed.
 #' @param replication Replicate number: allows performing multiple deterministic 
 #' replications at a given subsampling proportion
+#' @param replication Index of the subsampling replication. Used to generate a new seed for each replication
 #' 
 #' @details
 #' 
@@ -31,7 +33,6 @@
 #' proportion, and the replication # for that proportion.
 #' 
 #' @examples
-#' 
 #' data(hammer)
 #' 
 #' hammer.counts = Biobase::exprs(hammer)[, 1:4]
@@ -40,16 +41,25 @@
 #' 
 #' ss = subsample(hammer.counts, c(.01, .1, 1), treatment=hammer.design$protocol,
 #'                  method=c("edgeR", "DESeq2", "voomLimma"))
-#' 
+#' ss = subsample(counts=        hammer.counts,
+#'                treatments =   hammer.design$protocol,
+#'                proportions=   c(.01, .1, 1),
+#'                bioReplicates= c(2),
+#'                method=        c("edgeR", "DESeq2", "voomLimma"))
 #' seed = getSeed(ss)
 #' 
 #' # generate the matrices used at each subsample
-#' subm.01 = generateSubsampledMatrix(hammer.counts, .01, seed)
-#' subm.1 = generateSubsampledMatrix(hammer.counts, .1, seed)
+#' sample.inds <- 1:dim( hammer.counts)[2]
+#' proportions <- rep( 0.01, length( sample.inds))
+#' # from the subsampling function
+#' subm.01 = generateSubsampledMatrix(hammer.counts, sample.inds, proportions, seed=1234)
+#' subm.1 = generateSubsampledMatrix(hammer.counts, sample.inds, proportions, seed)
 #' 
 #' @import digest
 #' @return subsamples matrix at specified subsampling proportion
 #' @export
+#' 
+#'
 generateSubsampledMatrix <- function(counts, indeces, proportions, seed, replication=1) {
   if (!missing(seed)) {
     # calculate seed using an md5 hash of the global seed and the
@@ -63,9 +73,9 @@ generateSubsampledMatrix <- function(counts, indeces, proportions, seed, replica
   }
   # apply random binomial sampling to each cell
   # keep row names
-  rns <- rownames(counts)[indeces]
+  rns <- rownames(counts)
   n = nrow(counts)
-  ret <- apply( t( as.array( as.numeric(inds))), 2, function(ind){
+  ret <- apply( t( as.array( as.numeric( indeces))), 2, function(ind){
     rbinom(n, counts[ , ind], proportions[ ind])
   })
 
@@ -108,4 +118,36 @@ generateSubsampledMatrix <- function(counts, indeces, proportions, seed, replica
 #' @export
 getSeed <- function(ss) {
   attr(ss, "seed")
+}
+#' Draw an equal number of samples from each treatment catagory
+#'
+#' @param treatments A factor specifying treatment for each column
+#' @param rep The number of biological replicates from each sample
+#' @param seed A subsampling seed, which can be extracted from a subsamples
+#' @param replacement Boolean representing sampling with replacement
+#'
+#' @return A vector of indeces
+#' @export
+#'
+#' @examples
+getIndecesFromCatagoricalTreatment <- function( treatments, rep, seed, replacement= TRUE){
+  if (!missing(seed)) {
+    # calculate seed using an md5 hash of the global seed and the
+    # subsampling proportions
+    s = readBin(digest(c(seed, treatments, rep), raw=TRUE), "integer")
+    set.seed(s)
+  }
+  else if (is.null(seed)) {
+    stop(paste("Given a NULL seed: Probably was an error retrieving",
+               "the seed from the desired object"))
+  }
+  if( is.null( levels( treatments)))
+    treatments <- as.factor( treatments)
+  
+  #subsample from each treatment level
+  subsamples <- sapply( levels(treatments), function(lev){
+    inds <- which( treatments == lev)
+    sample( inds, rep, replace = replacement)
+  })
+  return( as.numeric( subsamples))
 }
