@@ -61,7 +61,7 @@
 #' @export
 subsample <-
   function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
-           replacement= FALSE, ballanced.proportions= TRUE, seed=NULL, qvalues = TRUE, env=parent.frame(), ...) {
+           replacement= FALSE, ballanced.proportions= FALSE, seed=NULL, qvalues = TRUE, env=parent.frame(), ...) {
     # error checking
     if (length(proportions) == 0) {
       stop("No proportions to sample")
@@ -72,7 +72,11 @@ subsample <-
     if (any(proportions > 1 | proportions == 0)) {
       stop("Proportions must be in range (0, 1]")
     }
-    if ( !( bioReplicates %in% seq(2, dim(counts)[2]))){
+    if ( length( treatments) != dim( counts)[2]){
+      stop("Collumns of counts and elements of treatments should correspond
+           so they should have the same length")
+    }
+    if ( any( !( bioReplicates %in% seq(2, dim(counts)[2])))){
       stop( "The number of biological replicates must be greater
             than one and less than the number of samples")
     }
@@ -126,7 +130,7 @@ subsample <-
     #m.ret = as.data.table(do.call(rbind, lapply(1:nrow(prop.reps),
     perform.ballanced.subsampling <- function(method, proportion, bioReplicates, replication) {
       # resample biological replicates
-      inds <- getIndecesFromCatagoricalTreatment( treatments, bioReplicates, replacement, seed)
+      inds <- getIndecesFromCatagoricalTreatment( treatments, bioReplicates, seed, replacement)
       treatment <- treatments[inds]
       #Get proportions for each index in inds
       #Calculating colsums once would help efficientcy, but it needs to be done in correct place to be readable
@@ -135,7 +139,7 @@ subsample <-
         #ind.proportion * total.counts == min( total.counts)
         ind.proportions <- proportion * min( total.counts) / total.counts[ inds]
       } else {
-        ind.proprtions <- rep( proportion, length.out= length( inds))
+        ind.proportions <- rep( proportion, length.out= length( inds))
       }
       # subsample reads and use handler
       subcounts = generateSubsampledMatrix(counts, inds, ind.proportions, seed, replication)
@@ -168,6 +172,8 @@ subsample <-
     ## cleanup
     if (qvalues) {
       # calculate q-values
+      # TODO:(riley) should it be required that there is a (proportion == 1) in ret?
+      # note, it has not been enforced that there exists a row with (proportion == 1) in ret
       ret0 = ret %>% filter(proportion == 1) %>% group_by(method) %>%
         summarize(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
       ret = ret %>% inner_join(ret0, by = c("method"))
