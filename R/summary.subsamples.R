@@ -22,7 +22,7 @@
 #' @param ... further arguments passed to or from other methods.
 #'
 #' @return A summary object, which is a \code{data.table}
-#' with one row for each subsampling depth, containing the metrics
+#' with one row for each subsampling of reads and biological replicates, containing the metrics
 #'
 #' \item{significant}{number of genes found significant at the given FDR}
 #' \item{pearson}{Pearson correlation of the coefficient estimates with the oracle}
@@ -106,7 +106,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
     tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
 
     # summary operation
-    ret = tab %>% group_by(depth, proportion, method, replication) %>%
+    ret = tab %>% group_by(depth, proportion, biological.replicate, method, replication) %>%
         mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
         summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
