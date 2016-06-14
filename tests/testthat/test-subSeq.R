@@ -1,23 +1,12 @@
+#TODO(riley) test replacement and ballanced.proportions features of subseq
 ### custom expectations ###
 
-is_na = function() {
-    function(x) {
-        n = sum(!is.na(x))
-        msg = ifelse(length(x) == 1, "isn't NA", paste("contains", n, "non-NA values"))
-        expectation(n == 0, msg)
-    }
+expect_na = function(x){
+  eval(bquote(expect_equal(sum( !is.na(.(x))), 0)))
 }
-
-is_not_na = function() {
-    function(x) {
-        n = sum(is.na(x))
-        msg = ifelse(length(x) == 1, "is NA", paste("contains", n, "NA values"))
-        expectation(n == 0, msg)
-    }
+expect_na = function(x){
+  eval(bquote(expect_equal(sum( is.na(.(x))), 0)))
 }
-
-expect_na = function(...) expect_that(..., is_na())
-expect_not_na = function(...) expect_that(..., is_not_na())
 
 ### setup ###
 
@@ -30,6 +19,7 @@ hammer.design = hammer@phenoData@data[1:4, ]
 counts = hammer.counts[rowSums(hammer.counts) > 5000, ]
 proportions = c(.01, .1, 1)
 treatment = hammer.design$protocol
+biological.replicate <- 2
 
 
 context("Individual handlers")
@@ -95,9 +85,11 @@ test.output = function(output, numgenes=NULL) {
 # })
 
 context("Subsampling")
-
-ss = subsample(counts, proportions, treatment=treatment,
-               method=c("edgeR", "voomLimma"))
+#function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
+#seed=NULL, qvalues = TRUE, env=parent.frame(), ...)
+ss = subsample(counts, treatments= hammer.design$protocol, proportions,
+               bioReplicates= biological.replicate, replications= 1,
+               replacement= FALSE, method=c("edgeR", "voomLimma"))
 ss.summ = summary(ss)
 
 test_that("subsamples returns a data table with the right structure", {
@@ -106,6 +98,7 @@ test_that("subsamples returns a data table with the right structure", {
 
     # check that the proportions and depths have the properties we expect
     expect_equal(sort(unique(ss$proportion)), proportions)
+    #this should be true only when all libraries do not have the same expected size
     expect_equal(max(ss$depth), sum(counts))
     expect_false(is.null(getSeed(ss)))
     
@@ -141,7 +134,7 @@ test_that("summaries can be created with other p-value corrections", {
     expect_that(summary(ss, p.adjust.method="nomethod"), throws_error("should be one of"))
 })
 
-ss.rep = subsample(counts, c(.1, 1), treatment=treatment,
+ss.rep = subsample(counts, proportions=  c(.1, 1), treatments=treatment, bioReplicates = biological.replicate,
                    method=c("edgeR", "voomLimma"), replications=2)
 
 test_that("Replications (multiple at each proportion) works", {
@@ -165,8 +158,7 @@ test_that("subSeq can handle low counts", {
     low.counts = low.counts[sample(nrow(low.counts), 500), ]
     
     low.proportions = c(.01, .1, 1)
-    
-    ss.low = subsample(low.counts, low.proportions, treatment=treatment,
+    ss.low = subsample(low.counts, treatment, low.proportions, 2,
                        method=c("edgeR", "voomLimma"))
     
     # test that plots still work
@@ -191,9 +183,9 @@ test_that("Combining subsamples works", {
     seed = getSeed(ss)
     # try three other proportions
     more.proportions = c(.05, .3, .5)
-    ss2 = subsample(counts, more.proportions, treatment=treatment,
-                         method=c("edgeR", "voomLimma"), seed=seed)
-
+    ss2 = subsample(counts, treatment, more.proportions, biological.replicate,
+                         method=c("edgeR", "voomLimma"), replacement = FALSE, seed=seed)
+    
     combined = combineSubsamples(ss, ss2)
     expect_equal(getSeed(ss), getSeed(ss2))
 })
@@ -207,15 +199,14 @@ test_that("Can provide custom error handlers", {
         return(data.frame(pvalue=fake.pvalues, coefficient=-.2))
     }
     test.output(custom(counts, treatment), length(fake.pvalues))
-    ss.custom = subsample(counts, proportions, treatment=treatment,
-                          method=custom)
+    ss.custom = subsample(counts, treatment, proportions, biological.replicate,
+                          method=custom, replacement = FALSE)
     
     expect_true(all(ss.custom$method == "custom"))
     expect_equal(fake.pvalues, ss.custom[depth == min(ss.custom$depth)]$pvalue)
-    
     # check it can be given as a string as well
-    ss.custom2 = subsample(counts, proportions, treatment=treatment,
-                           method="custom")
+    ss.custom2 = subsample(counts, treatment, proportions, bioReplicates = biological.replicate,
+                           method="custom", replacement= TRUE)
     expect_true(all(ss.custom2$method == "custom"))
     expect_equal(fake.pvalues, ss.custom2[depth == min(ss.custom2$depth)]$pvalue)
 })
@@ -232,14 +223,12 @@ test_that("Handlers can have columns that others don't", {
     custom3 = function(counts, treatment) {
         return(data.frame(pvalue=fake.pvalues, coefficient=othercols[, 1], other3=othercols[, 3]))
     }
-
-    ss.custom = subsample(counts, proportions,
-                          method=c("edgeR", "custom1", "custom2", "custom3"),
-                          treatment=treatment)
+    ss.custom = subsample(counts, treatment, proportions, biological.replicate,
+                          method=c("edgeR", "custom1", "custom2", "custom3"))
 
     # we expect it to fill in missing values with NAs
     expect_true(all(c("other", "other3") %in% colnames(ss.custom)))
-    expect_na(ss.custom[method == "edgeR", other])
+    expect_na(ss.custom[method == "edgeR", other]) #this is currently not working
     expect_na(ss.custom[method == "custom1", other3])
     expect_na(ss.custom[method == "custom2", other3])
     expect_na(ss.custom[method == "custom3", other])
@@ -262,7 +251,9 @@ test_that("Handlers don't have to return one row per gene", {
                               ID=as.character(1:n)))
         }
         
-        ss.custom = subsample(counts, proportions, method=c("edgeR", "custom.different"),
+        # function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
+        #          replacement= FALSE, ballanced.proportions= TRUE, seed=NULL, qvalues = TRUE, env=parent.frame(), ...)  
+        ss.custom = subsample(counts, treatment, proportions, biological.replicate, method=c("edgeR", "custom.different"),
                               treatment=treatment)
         ss.edgeR = ss.custom[method == "edgeR"]
         ss.custom.different = ss.custom[method == "custom.different"]
@@ -309,7 +300,8 @@ test_that("seeds are reproducible between methods", {
 test_that("seeds are reproducible between runs", {
     # perform it again with the same seed, and see that it matches the
     # first replication all the way through
-    ss2 = subsample(counts, proportions, treatment=treatment,
+    ss2 = subsample(counts, proportions, treatments=treatment,
+                    bioReplicates = biological.replicate,
                          method=c("edgeR", "voomLimma"),
                          seed=getSeed(ss))
     
@@ -350,7 +342,7 @@ test_that("generateSubsampledMatrix retrieves the correct subsampled matrices", 
 })
 
 test_that("Performing multiple replicates is reproducible", {
-    ss.rep.2 = subsample(counts, c(.1, 1), treatment=treatment,
+    ss.rep.2 = subsample(counts, treatment=treatment, c(.1, 1), biological.replicate,
                     method=c("edgeR", "voomLimma"), replications=2,
                     seed=getSeed(ss.rep))
     expect_equal(ss.rep$pvalue, ss.rep.2$pvalue)
@@ -369,37 +361,37 @@ context("Error handling")
 test_that("Raises an error on edgeR if there are >2 treatments", {
     new.treatment = c("A", "A", "B", "C")
     # check with multiple handlers
-    expect_that(subsample(counts, proportions, treatment=new.treatment,
+    expect_that(subsample(counts, treatments=new.treatment, proportions, biological.replicate,
                           method="edgeR"), throws_error("more than two levels"))
 })
 
 test_that("Raises an error if it cannot find the handler", {
-    expect_that(subsample(counts, proportions, treatment=treatment,
+    expect_that(subsample(counts, treatment=treatment, proportions, biological.replicate,
                           method="nomethod"),
                 throws_error("Could not find handler nomethod"))
 })
 
 test_that("error messages are thrown when proportions are incorrect", {    
-    expect_that(subsample(counts, c(), treatment=treatment, method="edgeR"),
+    expect_that(subsample(counts, treatments=treatment, c(), biological.replicate, method="edgeR"),
                 throws_error("No proportions"))
-    expect_that(subsample(counts, c(.1, 1, 2), treatment=treatment, method="edgeR"),
+    expect_that(subsample(counts, treatments=treatment, c(.1, 1, 2), biological.replicate, method="edgeR"),
                 throws_error("Proportions must be in range"))
-    expect_that(subsample(counts, c(0, 1), treatment=treatment, method="edgeR"),
+    expect_that(subsample(counts, treatment=treatment, c(0, 1), biological.replicate, method="edgeR"),
                 throws_error("Proportions must be in range"))
 })
 
 test_that("error message is thrown if counts were normalized", {
     # confirming that there was no normalization
-    expect_that(subsample(scale(counts), proportions, treatment=treatment,
+    expect_that(subsample(scale(counts), treatments=treatment, proportions, bioReplicates = biological.replicate,
                           method="edgeR"), throws_error("unnormalized"))
     sc.counts = scale(counts, center=FALSE)
-    expect_that(subsample(sc.counts, proportions, treatment=treatment,
+    expect_that(subsample(sc.counts, treatment=treatment, proportions, bioReplicates = biological.replicate,
                           method="edgeR"), throws_error("unnormalized"))
 })
 
 test_that("combineSubsamples raises an error when combining different seeds", {
     more.proportions = c(.05, .3, .5)
-    ss2 = subsample(counts, more.proportions, treatment=treatment,
+    ss2 = subsample(counts, treatment=treatment, more.proportions, bioReplicates = biological.replicate,
                     method=c("edgeR", "voomLimma"))
 
     expect_false(getSeed(ss) == getSeed(ss2))
