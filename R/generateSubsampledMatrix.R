@@ -75,8 +75,8 @@ generateSubsampledMatrix <- function(counts, indeces, proportions, seed, replica
   # keep row names
   rns <- rownames(counts)
   n = nrow(counts)
-  ret <- apply( t( as.array( as.numeric( indeces))), 2, function(ind){
-    rbinom(n, counts[ , ind], proportions[ ind])
+  ret <- apply( t(as.array(1:length(indeces))), 2, function(ii){
+    rbinom( n, counts[ , indeces[ii]], proportions[ii])
   })
 
   rownames(ret) <- rns
