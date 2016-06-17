@@ -4,7 +4,7 @@
 expect_na = function(x){
   eval(bquote(expect_equal(sum( !is.na(.(x))), 0)))
 }
-expect_na = function(x){
+expect_not_na = function(x){
   eval(bquote(expect_equal(sum( is.na(.(x))), 0)))
 }
 
@@ -85,8 +85,7 @@ test.output = function(output, numgenes=NULL) {
 # })
 
 context("Subsampling")
-#function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
-#seed=NULL, qvalues = TRUE, env=parent.frame(), ...)
+
 ss = subsample(counts, treatments= hammer.design$protocol, proportions,
                bioReplicates= biological.replicate, replications= 1,
                replacement= FALSE, method=c("edgeR", "voomLimma"))
@@ -182,7 +181,7 @@ test_that("subSeq can handle low counts", {
 test_that("Combining subsamples works", {
     seed = getSeed(ss)
     # try three other proportions
-    more.proportions = c(.05, .3, .5)
+    more.proportions = c(.05, .3, .5, 1)
     ss2 = subsample(counts, treatment, more.proportions, biological.replicate,
                          method=c("edgeR", "voomLimma"), replacement = FALSE, seed=seed)
     
@@ -204,6 +203,7 @@ test_that("Can provide custom error handlers", {
     
     expect_true(all(ss.custom$method == "custom"))
     expect_equal(fake.pvalues, ss.custom[depth == min(ss.custom$depth)]$pvalue)
+    
     # check it can be given as a string as well
     ss.custom2 = subsample(counts, treatment, proportions, bioReplicates = biological.replicate,
                            method="custom", replacement= TRUE)
@@ -223,6 +223,7 @@ test_that("Handlers can have columns that others don't", {
     custom3 = function(counts, treatment) {
         return(data.frame(pvalue=fake.pvalues, coefficient=othercols[, 1], other3=othercols[, 3]))
     }
+
     ss.custom = subsample(counts, treatment, proportions, biological.replicate,
                           method=c("edgeR", "custom1", "custom2", "custom3"))
 
@@ -251,10 +252,7 @@ test_that("Handlers don't have to return one row per gene", {
                               ID=as.character(1:n)))
         }
         
-        # function(counts, treatments, proportions, bioReplicates, method="edgeR", replications=1,
-        #          replacement= FALSE, ballanced.proportions= TRUE, seed=NULL, qvalues = TRUE, env=parent.frame(), ...)  
-        ss.custom = subsample(counts, treatment, proportions, biological.replicate, method=c("edgeR", "custom.different"),
-                              treatment=treatment)
+        ss.custom = subsample(counts, treatment, proportions, biological.replicate, method=c("edgeR", "custom.different"))
         ss.edgeR = ss.custom[method == "edgeR"]
         ss.custom.different = ss.custom[method == "custom.different"]
         
@@ -279,8 +277,9 @@ test_that("Handlers don't have to return one row per gene", {
     custom.noID = function(counts, treatment) {
         return(data.frame(pvalue=fake.pvalues, coefficient=coefs, other=othercol))
     }
-    expect_that(subsample(counts, proportions, method="custom.noID",
-                          treatment=treatment), throws_error("ID column"))
+    expect_that(subsample(counts, treatments=treatment, proportions,
+                          bioReplicates = biological.replicate, method="custom.noID"),
+                throws_error("if a handler doesn't return one row per gene then it must specify an ID collumn"))
 })
 
 
@@ -316,9 +315,11 @@ test_that("seeds are reproducible between runs", {
 })
 
 test_that("generateSubsampledMatrix retrieves the correct subsampled matrices", {
+    treatments= hammer.design$protocol
     p = min(ss$proportion)
     seed = getSeed(ss)
-    subm = generateSubsampledMatrix(counts, p, seed)
+    indeces <- getIndecesFromCatagoricalTreatment( treatments, rep= 2, seed, replacement= FALSE)
+    subm = generateSubsampledMatrix(counts, indeces, rep_len(p, length(indeces)), seed)
     expect_that(subm, is_a("matrix"))
     expect_equal(dim(subm), dim(counts))
     expect_equal(sum(subm), min(ss$depth))
@@ -333,11 +334,11 @@ test_that("generateSubsampledMatrix retrieves the correct subsampled matrices", 
     
     # confirm summary object also contains correct seed
     summ = summary(ss)
-    expect_equal(subm, generateSubsampledMatrix(counts, p, getSeed(summ)))
+    expect_equal(subm, generateSubsampledMatrix(counts, indeces, rep_len(p, length(indeces)), getSeed(summ)))
     
     # confirm generateSubsampledMatrix works if you explicitly
     # tell it replication is 1
-    subm.rep1 = generateSubsampledMatrix(counts, p, seed, replication=1)
+    subm.rep1 = generateSubsampledMatrix(counts, indeces, rep_len(p, length(indeces)), seed, replication=1)
     expect_equal(subm, subm.rep1)
 })
 
