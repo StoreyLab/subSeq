@@ -1,23 +1,11 @@
 ### custom expectations ###
 
-is_na = function() {
-    function(x) {
-        n = sum(!is.na(x))
-        msg = ifelse(length(x) == 1, "isn't NA", paste("contains", n, "non-NA values"))
-        expectation(n == 0, msg)
-    }
+expect_na = function(x){
+  eval(bquote(expect_equal(sum( !is.na(.(x))), 0)))
 }
-
-is_not_na = function() {
-    function(x) {
-        n = sum(is.na(x))
-        msg = ifelse(length(x) == 1, "is NA", paste("contains", n, "NA values"))
-        expectation(n == 0, msg)
-    }
+expect_not_na = function(x){
+  eval(bquote(expect_equal(sum( is.na(.(x))), 0)))
 }
-
-expect_na = function(...) expect_that(..., is_na())
-expect_not_na = function(...) expect_that(..., is_not_na())
 
 ### setup ###
 
@@ -289,7 +277,8 @@ test_that("Handlers don't have to return one row per gene", {
         return(data.frame(pvalue=fake.pvalues, coefficient=coefs, other=othercol))
     }
     expect_that(subsample(counts, proportions, method="custom.noID",
-                          treatment=treatment), throws_error("ID column"))
+                          treatment=treatment), 
+                throws_error("if a handler doesn't return one row per gene then it must specify an ID collumn"))
 })
 
 
