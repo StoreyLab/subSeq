@@ -4,7 +4,6 @@
 #' data representing mapped reads across multiple samples in many
 #' genes. For each sample, perform some statistical operations.
 #'
-#'
 #' @param counts Matrix of unnormalized counts
 #' @param treatments Vector (factor) of experimental treatments corresponding to
 #' collumns of counts
@@ -20,7 +19,7 @@
 #' @param env Environment in which to find evaluate additional hander functions
 #' that are given by name
 #' @param ... Other arguments given to the handler, such as \code{treatment}
-#' 
+#'
 #' @return A subsample S3 object, which is a data.table containing
 #'
 #' \item{pvalue}{A p-value calculated for each gene by the handler}
@@ -147,11 +146,24 @@ subsample <-
       subcounts = subcounts[id,] ### Filter counts at zero
       if (length(id) == 0) return("Error: counts too low at subsampling proportion")
       handler = methods[[method]]
-      #TODO(riley) calling handler in this way is a problem when treatment is not an argument
       ret = handler(subcounts, treatment, ...)
-      # add gene names (ID) and per-gene counts
-      ret$ID = rownames(subcounts)
-      ret$count = as.integer(rowSums(subcounts))
+      ## add gene names (ID) and per-gene counts
+      ## If there is one handler row per gene, the remaining collumns of ret, "ID" and "counts", can be infered.
+      infer.per.gene = dim( ret)[1] == dim( subcounts)[1]
+      if ( !any( "ID" == colnames(ret))){
+        if (infer.per.gene){
+          ret$ID = rownames(subcounts)
+        } else {
+          stop("if a handler doesn't return one row per gene then it must specify an ID collumn")
+        }
+      }
+      if ( !any( "count" == colnames(ret))){
+        if (infer.per.gene){
+          ret$count = as.integer(rowSums(subcounts))
+        } else {
+          ret$count = NA
+        }
+      }
       ret$depth = sum(subcounts)
       
       # in any cases of no reads, fix coefficient/pvalue to 0/1
@@ -172,9 +184,8 @@ subsample <-
     ## cleanup
     if (qvalues) {
       # calculate q-values
-      # TODO:(riley) should it be required that there is a (proportion == 1) in ret?
-      # note, it has not been enforced that there exists a row with (proportion == 1) in ret
-      ret0 = ret %>% filter(proportion == 1) %>% group_by(method) %>%
+      max.proportion <- max( ret$proportion)
+      ret0 = ret %>% filter(proportion == max.proportion) %>% group_by(method) %>%
         summarize(pi0=qvalue::qvalue(pvalue, lambda = seq(0.05,0.9, 0.05))$pi0) %>% group_by()
       ret = ret %>% inner_join(ret0, by = c("method"))
       ret = ret %>% group_by(proportion, method, replication) %>%
