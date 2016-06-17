@@ -18,6 +18,27 @@ edgeR <-
         ret
     }
 
+# a handler to test for differential expression with edgeR and return the
+#dispersion estimates corresponding with each gene
+edgeRDispersions <-
+  function(count.matrix, treatment, pair=NULL) {
+    treatment = factor(treatment)
+    if (is.null(pair)) {
+      if (length(levels(treatment)) > 2) {
+        stop(paste("If there are more than two levels of treatment,",
+                   "must be explicitly given pair to compare"))
+      }
+      pair = levels(treatment)
+    }
+
+    d = edgeR::DGEList(counts=count.matrix, group=treatment)
+    d = edgeR::calcNormFactors(d)
+    d = edgeR::estimateCommonDisp(d)
+    d = edgeR::estimateTagwiseDisp(d)
+    edgeR.result = edgeR::exactTest(d, pair=pair)$table
+    ret = data.frame(coefficient=edgeR.result$logFC, pvalue=edgeR.result$PValue, dispersion= d$tagwise.dispersion)
+    ret
+  }
 
 edgeR.glm <-
     function(count.matrix, mm, column=2, group=NULL) {
