@@ -42,31 +42,31 @@ test.output = function(output, numgenes=NULL) {
     }
 }
 
-#test_that("edgeR.glm handler works", {
-#    mm = model.matrix(~ treatment)
-#    test.output(subSeq::edgeR.glm(testcounts, mm=mm), nrow(testcounts))
-#    confounder = rnorm(ncol(testcounts))
-#    mm2 = model.matrix(~ treatment + confounder)
-#    test.output(subSeq::edgeR.glm(testcounts, mm=mm2), nrow(testcounts))
+test_that("edgeR.glm handler works", {
+   mm = model.matrix(~ treatment)
+   test.output(subSeq::edgeR.glm(testcounts, mm=mm), nrow(testcounts))
+   confounder = rnorm(ncol(testcounts))
+   mm2 = model.matrix(~ treatment + confounder)
+   test.output(subSeq::edgeR.glm(testcounts, mm=mm2), nrow(testcounts))
 
     # check that the edgeR applied to a random confounder is roughly uniform
     # (and thus that it actually is using that confounder)
-#    conf.out = subSeq::edgeR.glm(counts, mm=mm2, column=3)
-#    test.output(conf.out, nrow(counts))
-#    expect_true(mean(conf.out$pvalue) < .7 & mean(conf.out$pvalue) > .3)
-#})
+   conf.out = subSeq::edgeR.glm(counts, mm=mm2, column=3)
+   test.output(conf.out, nrow(counts))
+   expect_true(mean(conf.out$pvalue) < .7 & mean(conf.out$pvalue) > .3)
+})
 
-#test_that("edgeR handler works", {
-#    test.output(subSeq::edgeR(testcounts, treatment), nrow(testcounts))
-#})
+test_that("edgeR handler works", {
+   test.output(subSeq::edgeR(testcounts, treatment), nrow(testcounts))
+})
 
-#test_that("DESeq2 handler works", {
-#    test.output(DESeq2(testcounts, treatment), nrow(testcounts))
-#})
+test_that("DESeq2 handler works", {
+   test.output(DESeq2(testcounts, treatment), nrow(testcounts))
+})
 
-#test_that("voomLimma handler works", {
-#    test.output(voomLimma(testcounts, treatment), nrow(testcounts))
-#})
+test_that("voomLimma handler works", {
+   test.output(voomLimma(testcounts, treatment), nrow(testcounts))
+})
 
 # DEXSeq has problems; leaving it out
 
