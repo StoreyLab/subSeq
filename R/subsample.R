@@ -121,13 +121,13 @@ subsample <-
             handler = methods[[method]]
             ret = handler(subcounts, ...)
             # add gene names (ID) and per-gene counts
-            # If there is one handler row per gene, the remaining collumns of ret, "ID" and "counts", can be infered.
+            # If there is one handler row per gene, the remaining columns of ret, "ID" and "counts", can be infered.
             infer.per.gene = dim( ret)[1] == dim( subcounts)[1]
             if ( !any( "ID" == colnames(ret))){
               if (infer.per.gene){
                 ret$ID = rownames(subcounts)
               } else {
-                stop("if a handler doesn't return one row per gene then it must specify an ID collumn")
+                stop("if a handler doesn't return one row per gene then it must specify an ID column")
               }
             }
             if ( !any( "count" == colnames(ret))){

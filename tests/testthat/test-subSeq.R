@@ -278,7 +278,7 @@ test_that("Handlers don't have to return one row per gene", {
     }
     expect_that(subsample(counts, proportions, method="custom.noID",
                           treatment=treatment), 
-                throws_error("if a handler doesn't return one row per gene then it must specify an ID collumn"))
+                throws_error("if a handler doesn't return one row per gene then it must specify an ID column"))
 })
 
 
