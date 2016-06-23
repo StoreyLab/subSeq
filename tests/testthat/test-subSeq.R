@@ -1,23 +1,11 @@
 ### custom expectations ###
 
-is_na = function() {
-    function(x) {
-        n = sum(!is.na(x))
-        msg = ifelse(length(x) == 1, "isn't NA", paste("contains", n, "non-NA values"))
-        expectation(n == 0, msg)
-    }
+expect_na = function(x){
+  eval(bquote(expect_equal(sum( !is.na(.(x))), 0)))
 }
-
-is_not_na = function() {
-    function(x) {
-        n = sum(is.na(x))
-        msg = ifelse(length(x) == 1, "is NA", paste("contains", n, "NA values"))
-        expectation(n == 0, msg)
-    }
+expect_not_na = function(x){
+  eval(bquote(expect_equal(sum( is.na(.(x))), 0)))
 }
-
-expect_na = function(...) expect_that(..., is_na())
-expect_not_na = function(...) expect_that(..., is_not_na())
 
 ### setup ###
 
@@ -54,31 +42,31 @@ test.output = function(output, numgenes=NULL) {
     }
 }
 
-#test_that("edgeR.glm handler works", {
-#    mm = model.matrix(~ treatment)
-#    test.output(subSeq::edgeR.glm(testcounts, mm=mm), nrow(testcounts))
-#    confounder = rnorm(ncol(testcounts))
-#    mm2 = model.matrix(~ treatment + confounder)
-#    test.output(subSeq::edgeR.glm(testcounts, mm=mm2), nrow(testcounts))
+test_that("edgeR.glm handler works", {
+   mm = model.matrix(~ treatment)
+   test.output(subSeq::edgeR.glm(testcounts, mm=mm), nrow(testcounts))
+   confounder = rnorm(ncol(testcounts))
+   mm2 = model.matrix(~ treatment + confounder)
+   test.output(subSeq::edgeR.glm(testcounts, mm=mm2), nrow(testcounts))
 
     # check that the edgeR applied to a random confounder is roughly uniform
     # (and thus that it actually is using that confounder)
-#    conf.out = subSeq::edgeR.glm(counts, mm=mm2, column=3)
-#    test.output(conf.out, nrow(counts))
-#    expect_true(mean(conf.out$pvalue) < .7 & mean(conf.out$pvalue) > .3)
-#})
+   conf.out = subSeq::edgeR.glm(counts, mm=mm2, column=3)
+   test.output(conf.out, nrow(counts))
+   expect_true(mean(conf.out$pvalue) < .7 & mean(conf.out$pvalue) > .3)
+})
 
-#test_that("edgeR handler works", {
-#    test.output(subSeq::edgeR(testcounts, treatment), nrow(testcounts))
-#})
+test_that("edgeR handler works", {
+   test.output(subSeq::edgeR(testcounts, treatment), nrow(testcounts))
+})
 
-#test_that("DESeq2 handler works", {
-#    test.output(DESeq2(testcounts, treatment), nrow(testcounts))
-#})
+test_that("DESeq2 handler works", {
+   test.output(DESeq2(testcounts, treatment), nrow(testcounts))
+})
 
-#test_that("voomLimma handler works", {
-#    test.output(voomLimma(testcounts, treatment), nrow(testcounts))
-#})
+test_that("voomLimma handler works", {
+   test.output(voomLimma(testcounts, treatment), nrow(testcounts))
+})
 
 # DEXSeq has problems; leaving it out
 
@@ -289,7 +277,8 @@ test_that("Handlers don't have to return one row per gene", {
         return(data.frame(pvalue=fake.pvalues, coefficient=coefs, other=othercol))
     }
     expect_that(subsample(counts, proportions, method="custom.noID",
-                          treatment=treatment), throws_error("ID column"))
+                          treatment=treatment), 
+                throws_error("if a handler doesn't return one row per gene then it must specify an ID column"))
 })
 
 
