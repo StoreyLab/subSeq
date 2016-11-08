@@ -1,7 +1,7 @@
 Package: subSeq
 Type: Package
 Title: Subsampling of high-throughput sequencing count data
-Version: 1.2.3
+Version: 1.4.1
 Author: David Robinson, John D. Storey, with contributions from Andrew J. Bass
 Maintainer: Andrew J. Bass <ajbass@princeton.edu>, John D. Storey
  <jstorey@princeton.edu>
