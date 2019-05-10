@@ -65,6 +65,7 @@ subsample <-
 
         # check that the counts is an unnormalized numeric matrix
         counts = as.matrix(counts)
+        num_genes = nrow(counts)
         error = max(abs(round(counts) - counts))
         if (error > 1e-4 | any(counts < 0)) {
             stop("Counts should be unnormalized integer counts (not, e.g., RPKM)")
@@ -167,7 +168,8 @@ subsample <-
                 mutate(qvalue=qvalue.fixedpi0(pvalue, pi0s=unique(pi0))) %>% group_by()
 
         }
-
+        
+        ret$genes <- num_genes
         # turn into a subsamples object
         ret = as.data.table(as.data.frame(ret))
         class(ret) = c("subsamples", class(ret))

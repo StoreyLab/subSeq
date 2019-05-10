@@ -106,7 +106,7 @@ function(object, oracle=NULL, FDR.level=.05, average=FALSE,
     tab = tab %>% inner_join(sub.oracle, by=c("method", "ID"))
 
     # summary operation
-    ret = tab %>% group_by(depth, proportion, method, replication) %>%
+    ret = tab %>% group_by(depth, proportion, method, replication, genes) %>%
         mutate(valid=(!is.na(coefficient) & !is.na(o.coefficient))) %>%
         summarize(significant=sum(padj < FDR.level),
                   pearson=cor(coefficient, o.coefficient, use="complete.obs"),
